@@ -5,13 +5,17 @@ import { initWebGPU, Renderer } from './renderer';
 import { NaiveRenderer } from './renderers/naive';
 import { ForwardPlusRenderer } from './renderers/forward_plus';
 import { ClusteredDeferredRenderer } from './renderers/clustered_deferred';
+import { TextureRenderer } from './renderers/node_render';
 
 import { setupLoaders, Scene } from './stage/scene';
 import { Lights } from './stage/lights';
 import { Camera } from './stage/camera';
 import { Stage } from './stage/stage';
 
+// get the GPU adapter + device
 await initWebGPU();
+
+// loader for gltf / image
 setupLoaders();
 
 let scene = new Scene();
@@ -36,17 +40,18 @@ var renderer: Renderer | undefined;
 function setRenderer(mode: string) {
     renderer?.stop();
 
-    switch (mode) {
-        case renderModes.naive:
-            renderer = new NaiveRenderer(stage);
-            break;
-        case renderModes.forwardPlus:
-            renderer = new ForwardPlusRenderer(stage);
-            break;
-        case renderModes.clusteredDeferred:
-            renderer = new ClusteredDeferredRenderer(stage);
-            break;
-    }
+    renderer = new TextureRenderer(stage);
+    // switch (mode) {
+    //     case renderModes.naive:
+    //         renderer = new NaiveRenderer(stage);
+    //         break;
+    //     case renderModes.forwardPlus:
+    //         renderer = new ForwardPlusRenderer(stage);
+    //         break;
+    //     case renderModes.clusteredDeferred:
+    //         renderer = new ClusteredDeferredRenderer(stage);
+    //         break;
+    // }
 }
 
 const renderModes = { naive: 'naive', forwardPlus: 'forward+', clusteredDeferred: 'clustered deferred' };
