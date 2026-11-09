@@ -9,7 +9,7 @@ import { registerLoaders, load } from '@loaders.gl/core';
 import { GLTFLoader, GLTFWithBuffers, GLTFMesh, GLTFMeshPrimitive, GLTFMaterial, GLTFSampler } from '@loaders.gl/gltf';
 import { ImageLoader } from '@loaders.gl/images';
 import { Mat4, mat4 } from 'wgpu-matrix';
-import { device, materialBindGroupLayout, modelBindGroupLayout } from '../renderer';
+import { device, materialBindGroupLayout, modelBindGroupLayout } from '../node_editor/renderer';
 
 export function setupLoaders() {
     registerLoaders([GLTFLoader, ImageLoader]);

@@ -1,4 +1,4 @@
-import * as renderer from '../renderer';
+import * as renderer from './renderer';
 import * as shaders from '../shaders/shaders';
 import { Stage } from '../stage/stage';
 
@@ -110,7 +110,7 @@ export class TextureRenderer extends renderer.Renderer {
             vertex: {
                 module: renderer.device.createShaderModule({
                     label: "clustered deferred fullscreen vert shader",
-                    code: shaders.clusteredDeferredFullscreenVertSrc 
+                    code: shaders.fullscreenVertSrc
                 }),
                 buffers: []
             },

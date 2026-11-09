@@ -1,21 +1,6 @@
-// CHECKITOUT: this file loads all the shaders and preprocesses them with some common code
-
-import { Camera } from '../stage/camera';
-
 import commonRaw from './common.wgsl?raw';
 
-import naiveVertRaw from './naive.vs.wgsl?raw';
-import naiveFragRaw from './naive.fs.wgsl?raw';
-
-import forwardPlusFragRaw from './forward_plus.fs.wgsl?raw';
-
-import clusteredDeferredFragRaw from './clustered_deferred.fs.wgsl?raw';
-import clusteredDeferredFullscreenVertRaw from './clustered_deferred_fullscreen.vs.wgsl?raw';
-import clusteredDeferredFullscreenFragRaw from './clustered_deferred_fullscreen.fs.wgsl?raw';
-
-import moveLightsComputeRaw from './move_lights.cs.wgsl?raw';
-import clusteringComputeRaw from './clustering.cs.wgsl?raw';
-
+import fullscreenVertRaw from './fullscreen.vs.wgsl?raw';
 import noiseComputeRaw from './noise.cs.wgsl?raw';
 import displayFragRaw from './display.fs.wgsl?raw';
 
@@ -32,17 +17,6 @@ export const constants = {
     bindGroup_model: 1,
     bindGroup_gBuffer: 1,
     bindGroup_material: 2,
-
-    moveLightsWorkgroupSize: 128,
-
-    maxLightsPerCluster: 512,
-    doLightClusteringWorkgroupSize: 128,
-    
-    clusterX: 32, 
-    clusterY: 18,
-    clusterZ: 24,
-
-    lightRadius: 2
 };
 
 // =================================
@@ -68,18 +42,7 @@ function processShaderRaw(raw: string) {
     return commonSrc + evalShaderRaw(raw);
 }
 
-export const naiveVertSrc: string = processShaderRaw(naiveVertRaw);
-export const naiveFragSrc: string = processShaderRaw(naiveFragRaw);
-
-export const forwardPlusFragSrc: string = processShaderRaw(forwardPlusFragRaw);
-
-export const clusteredDeferredFragSrc: string = processShaderRaw(clusteredDeferredFragRaw);
-export const clusteredDeferredFullscreenVertSrc: string = processShaderRaw(clusteredDeferredFullscreenVertRaw);
-export const clusteredDeferredFullscreenFragSrc: string = processShaderRaw(clusteredDeferredFullscreenFragRaw);
-
-export const moveLightsComputeSrc: string = processShaderRaw(moveLightsComputeRaw);
-export const clusteringComputeSrc: string = processShaderRaw(clusteringComputeRaw);
-
+export const fullscreenVertSrc: string = processShaderRaw(fullscreenVertRaw);
 
 export const noiseComputeSrc: string = processShaderRaw(noiseComputeRaw);
 export const displayFragSrc: string = processShaderRaw(displayFragRaw);
