@@ -86,15 +86,28 @@ export const nodeDefinitions = {
         inputs: [
             {
                 name: "a",
-                type: dataTypes.FLOAT32
+                type: dataTypes.FLOAT32,
+                fallbackParameter: "a"
             },
             {
                 name: "b",
-                type: dataTypes.FLOAT32
+                type: dataTypes.FLOAT32,
+                fallbackParameter: "b"
             },
         ],
 
-        parameters: [],
+        parameters: [
+            {
+                name: "a",
+                type: dataTypes.FLOAT32,
+                default: 0.0
+            },
+            {
+                name: "b",
+                type: dataTypes.FLOAT32,
+                default: 0.0
+            },
+        ],
 
         outputs: [
             { name: "value", type: "float32" }

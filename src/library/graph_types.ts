@@ -12,8 +12,8 @@ export interface graphNode {
     id: number,     // 4B
     type: number;   // 2B
     connections: graphConnection[];
-    inputValues: Record<string, graphValue>; // inputs from parent nodes
-    parameters: Record<string, graphValue>; // node-specific parameters
+    inputValues: Record<string, graphValue>[]; // inputs from parent nodes
+    parameters: Record<string, graphValue>[]; // node-specific parameters
 }
 
 export interface Graph {
