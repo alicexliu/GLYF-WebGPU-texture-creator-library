@@ -1,4 +1,4 @@
-// Wrapper for DataView because I dont want to manually offset the pointer for reading each time
+// Wrapper for DataView 
 // GLYF files are little-endian
 
 export class BinaryReader {
@@ -7,6 +7,12 @@ export class BinaryReader {
 
     constructor(buffer: ArrayBuffer) {
         this.view = new DataView(buffer);
+    }
+
+    getFloat32(): number {
+        const val = this.view.getFloat32(this.offset, true);
+        this.offset += 4;
+        return val;
     }
 
     getUint32(): number {

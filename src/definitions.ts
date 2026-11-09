@@ -101,3 +101,7 @@ export const nodeDefinitions = {
         ]
     },
 }
+
+export const nodeDefinitionById = new Map(
+    Object.values(nodeDefinitions).map(def => [def.id, def])
+);

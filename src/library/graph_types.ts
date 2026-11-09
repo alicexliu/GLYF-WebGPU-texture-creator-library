@@ -9,7 +9,7 @@ export interface graphConnection {
 export type graphValue = number | number[];
 
 export interface graphNode {
-    id: number, // 4B
+    id: number,     // 4B
     type: number;   // 2B
     connections: graphConnection[];
     inputValues: Record<string, graphValue>; // inputs from parent nodes

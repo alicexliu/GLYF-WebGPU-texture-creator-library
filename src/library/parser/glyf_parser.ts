@@ -1,13 +1,12 @@
 import { BinaryReader } from './binary_reader';
-import { dataTypes, nodeDefinitions } from '../../definitions';
+import { dataTypes, nodeDefinitions, nodeDefinitionById } from '../../definitions';
 import { GLYF_MAGIC_NUMBER } from '../glyf_types';
-import type { glyfHeader } from '../glyf_types';
+import type { glyfHeader, glyfEditorInfo, NodePosition } from '../glyf_types';
 import type { graphNode, graphConnection, Graph } from '../graph_types';
 
 function parseHeader(reader: BinaryReader) : glyfHeader {
     const header: glyfHeader = {
         magic: reader.getUint32(), // TODO: is this what the magic number is supposed to be?
-        version: reader.getUint16(),
         fileSize: reader.getUint32(),
         nodeCount: reader.getUint32(),
         outputNodeId: reader.getUint32()
@@ -47,12 +46,22 @@ function parseParameters(
     reader: BinaryReader, nodeType: number, parameterLength: number
 ) : Record<string, number | number[]> {
     // TODO
-    throw new Error("Unimplemented");
+    const definition = nodeDefinitionById.get(nodeType)
 }
 
-function parseEditorData(reader: BinaryReader) {
-    // TODO
-    throw new Error("Unimplemented");
+function parseEditorData(reader: BinaryReader, header: glyfHeader) : glyfEditorInfo {
+    // TODO: add any additional fields needed by the editor
+    let nodePositionData : NodePosition[] = [];
+    for (let i = 0; i < header.nodeCount; ++i) {
+        const id = reader.getUint32();
+        const x = reader.getFloat32();
+        const y = reader.getFloat32();
+        nodePositionData.push({id, x, y});
+    }
+    const metadataLength = reader.getUint16();
+    const metadata = null;
+    
+    return {nodePositionData, metadataLength, metadata};
 }
 
 // Parse a GLYF file into a Graph in memory
@@ -68,7 +77,7 @@ function parseGlyf(buffer: ArrayBuffer, editor: boolean = false) : Graph {
     }
 
     if (editor) {
-        parseEditorData(reader);
+        parseEditorData(reader, header);
     }
 
     return {nodes, outputNodeId: header.outputNodeId};

@@ -1,10 +1,9 @@
 // Structs for GLYF file definition
-export const GLYF_MAGIC_NUMBER = 0x46594C47; // 'GLYF' litte endian
-export const GLYF_VERSION = 1;
+export const GLYF_MAGIC_NUMBER = 0x46594C47; // 'GLYF' little endian
+export const GLYF_HEADER_BYTE_SIZE = 16;
 
 export interface glyfHeader {
-    magic: number; // TOASK: what is this?
-    version: number; // TOASK: do we really need multiple glyf format versions
+    magic: number;          // 4B
     fileSize: number;       // 4B
     nodeCount: number;      // 4B
     outputNodeId: number;   // 4B
@@ -17,10 +16,22 @@ export interface glyfConnection {
 }
 
 export interface glyfNode {
-    id: number;                 //4B
+    id: number;                 // 4B
     type: number;               // 2B
-    connectionCount: number;    // 16B
+    connectionCount: number;    // 4B
     connections: glyfConnection[];
     parameterLength: number;    // 2B
     parameterData: Uint8Array;
+}
+
+export interface NodePosition {
+    id: number;         // 4B
+    x: number;          // 4B
+    y: number;          // 4B
+}
+
+export interface glyfEditorInfo {
+    nodePositionData: NodePosition[];
+    metadataLength: number;         //4B
+    metadata: Uint8Array; // TODO: figure out if we actually have extra metadata to store
 }
