@@ -7,9 +7,11 @@ import { TextureRenderer } from './node_editor/texture_render';
 import { setupLoaders, Scene } from './stage/scene';
 import { Camera } from './stage/camera';
 import { Stage } from './stage/stage';
+import { createEditor } from './node_editor/editor';
 
 // get the GPU adapter + device
 await initWebGPU();
+await createEditor(document.getElementById("rete")!);
 
 // loader for gltf / image
 setupLoaders();
