@@ -9,6 +9,8 @@
   },
   "devDependencies": {
     "@types/dat.gui": "^0.7.13",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/seedrandom": "^3.0.8",
     "@types/stats.js": "^0.17.3",
     "@webgpu/types": "^0.1.44",
@@ -19,7 +21,15 @@
     "@loaders.gl/gltf": "^4.2.2",
     "@loaders.gl/images": "^4.2.3",
     "dat.gui": "^0.7.9",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "rete": "^2.0.6",
+    "rete-area-plugin": "^2.3.2",
+    "rete-connection-plugin": "^2.0.5",
+    "rete-react-plugin": "^2.1.2",
+    "rete-render-utils": "^2.0.3",
     "stats.js": "^0.17.0",
+    "styled-components": "^6.6.0",
     "wgpu-matrix": "^3.0.2"
   }
 }

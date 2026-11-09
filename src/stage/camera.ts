@@ -1,6 +1,6 @@
 import { Mat4, mat4, Vec3, vec3, vec2 } from "wgpu-matrix";
 import { toRadians } from "../math_util";
-import { device, canvas, fovYDegrees, aspectRatio } from "../renderer";
+import { device, canvas, fovYDegrees, aspectRatio } from "../node_editor/renderer";
 
 class CameraUniforms {
     readonly buffer = new ArrayBuffer(52 * 4);
