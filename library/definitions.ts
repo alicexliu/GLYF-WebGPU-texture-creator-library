@@ -38,22 +38,33 @@ export const dataTypes = {
 export const nodeDefinitions = {
     Color: {
         id: 0,
-        parameters: {
-            color: {
+
+        inputs: [
+            {
+                name: "value",
                 type: dataTypes.VEC4,
-                default: [0.0, 0.0, 0.0]
-            }
-        }
+                default: [0.0, 0.0, 0.0, 0.0]
+            },
+        ],
+
+        outputs: [
+            { name: "value", type: "float32" }
+        ]
     },
 
     Constant: {
         id: 1,
-        inputParameterLayout: "ONE_FLOAT",
-        parameters: {
-            value: {
+
+        inputs: [
+            {
+                name: "value",
                 type: dataTypes.FLOAT32,
                 default: 0.0
-            }
-        }
+            },
+        ],
+
+        outputs: [
+            { name: "value", type: "float32" }
+        ]
     }
 }
