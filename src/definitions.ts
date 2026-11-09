@@ -34,11 +34,22 @@ export const dataTypes = {
 
 // NODE DEFINITIONS
 // TODO: add more as needed 
+// NOTE: i changed Color and constant to hold value in 
+// added parameters too and changed inputs inputs bc they belong to the node rather 
+// than being required to be input from another node, but should be able to feed in
 export const nodeDefinitions = {
     Color: {
         id: 0,
 
         inputs: [
+            {
+                name: "value",
+                type: dataTypes.VEC4,
+                fallbackParameter: "value"
+            },
+        ],
+
+        parameters: [
             {
                 name: "value",
                 type: dataTypes.VEC4,
@@ -54,7 +65,9 @@ export const nodeDefinitions = {
     Constant: {
         id: 1,
 
-        inputs: [
+        inputs: [],
+
+        parameters: [
             {
                 name: "value",
                 type: dataTypes.FLOAT32,
@@ -63,7 +76,28 @@ export const nodeDefinitions = {
         ],
 
         outputs: [
+            { name: "value", type: dataTypes.FLOAT32 }
+        ]
+    },
+
+    Add: {
+        id: 2,
+
+        inputs: [
+            {
+                name: "a",
+                type: dataTypes.FLOAT32
+            },
+            {
+                name: "b",
+                type: dataTypes.FLOAT32
+            },
+        ],
+
+        parameters: [],
+
+        outputs: [
             { name: "value", type: "float32" }
         ]
-    }
+    },
 }
