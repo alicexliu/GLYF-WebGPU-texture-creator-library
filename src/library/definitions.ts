@@ -33,8 +33,7 @@ export const dataTypes = {
 };
 
 // NODE DEFINITIONS
-// TODO: add more as needed, may need to add more fields like
-// default values
+// TODO: add more as needed 
 export const nodeDefinitions = {
     Color: {
         id: 0,
