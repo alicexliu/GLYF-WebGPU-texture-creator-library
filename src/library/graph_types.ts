@@ -10,9 +10,8 @@ export type graphValue = number | number[];
 
 export interface graphNode {
     id: number,     // 4B
-    type: number;   // 2B
+    typeId: number;   // 2B
     connections: graphConnection[];
-    inputValues: Record<string, graphValue>; // inputs from parent nodes
     parameters: Record<string, graphValue>; // node-specific parameters
 
     x_coord: number, // 4B float

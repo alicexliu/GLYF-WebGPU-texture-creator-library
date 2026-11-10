@@ -36,30 +36,44 @@ export const dataTypes = {
 // TODO: add more as needed 
 // NOTE: i changed Color and constant to hold value in 
 // added parameters too and changed inputs inputs bc they belong to the node rather 
-// than being required to be input from another node, but should be able to feed in
-export const nodeDefinitions = {
-    Color: {
-        id: 0,
+// than being required to be input from another node, but should be able to feed in 
 
-        inputs: [],
+// PARAMETERS:
+// socket: true -> can have node input socket / false -> can only be set manually
+// default: initial value for the parameter, can be changed manually 
+
+// socket + default -> can be set manually, but input node overrides
+// socket only -> input node required
+// default only -> can only be set manually
+// neither cant happen 
+export const nodeDefinitions = {
+    Output: {
+        typeId: 0,
+
+        parameters: [
+            { name: "albedo",     type: dataTypes.VEC3,    socket: true },                       
+            { name: "normal",     type: dataTypes.VEC3,    socket: true,  default: [0.5, 0.5, 1.0] }, // (0,0,1) flattened
+        ],
+        outputs: []
+    },
+    Color: {
+        typeId: 1,
 
         parameters: [
             {
                 name: "value",
                 type: dataTypes.VEC4,
-                default: [0.0, 0.0, 0.0, 0.0]
+                default: [0.0, 0.0, 0.0, 1.0]
             },
         ],
 
         outputs: [
-            { name: "value", type: dataTypes.FLOAT32 }
+            { name: "value", type: dataTypes.VEC4 }
         ]
     },
 
     Constant: {
-        id: 1,
-
-        inputs: [],
+        typeId: 2,
 
         parameters: [
             {
@@ -75,30 +89,11 @@ export const nodeDefinitions = {
     },
 
     Add: {
-        id: 2,
-
-        inputs: [
-            {
-                name: "a",
-                type: dataTypes.FLOAT32
-            },
-            {
-                name: "b",
-                type: dataTypes.FLOAT32
-            },
-        ],
+        typeId: 3,
 
         parameters: [
-            {
-                name: "a",
-                type: dataTypes.FLOAT32,
-                default: 0.0
-            },
-            {
-                name: "b",
-                type: dataTypes.FLOAT32,
-                default: 0.0
-            },
+            { name: "a",     type: dataTypes.FLOAT32,    socket: true,  default: 0.0 },
+            { name: "b",     type: dataTypes.FLOAT32,    socket: true,  default: 0.0 },
         ],
 
         outputs: [
@@ -107,16 +102,11 @@ export const nodeDefinitions = {
     },
 
     Invert: {
-        id: 3,
+        typeId: 4,
 
-        inputs: [
-            {
-                name: "value",
-                type: dataTypes.VEC4
-            },
+        parameters: [
+            { name: "value", type: dataTypes.VEC4, socket: true},
         ],
-
-        parameters: [],
 
         outputs: [
             { name: "value", type: dataTypes.VEC4 }
@@ -125,5 +115,5 @@ export const nodeDefinitions = {
 }
 
 export const nodeDefinitionById = new Map(
-    Object.values(nodeDefinitions).map(def => [def.id, def])
+    Object.values(nodeDefinitions).map(def => [def.typeId, def])
 );
