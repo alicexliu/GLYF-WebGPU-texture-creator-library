@@ -41,13 +41,7 @@ export const nodeDefinitions = {
     Color: {
         id: 0,
 
-        inputs: [
-            {
-                name: "value",
-                type: dataTypes.VEC4,
-                fallbackParameter: "value"
-            },
-        ],
+        inputs: [],
 
         parameters: [
             {
