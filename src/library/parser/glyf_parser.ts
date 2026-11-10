@@ -77,9 +77,6 @@ function parseAttributes(
 
     // Read inputs
     for (let i = 0; i < definition.inputs.length; ++i) {
-        const inputName = definition.inputs[i].name;
-        const lenToSkip = inputName.length;
-        reader.getString(lenToSkip);
         const data = parseData(definition.inputs[i].type, reader);
         record = {inputName: inputName, data};
         parameters.push(record);
@@ -87,9 +84,6 @@ function parseAttributes(
 
     // Read paramaters
     for (let i = 0; i < definition.parameters.length; ++i) {
-        const paramName = definition.parameters[i].name;
-        const lenToSkip = paramName.length;
-        reader.getString(lenToSkip);
         const data = parseData(definition.parameters[i].type, reader);
         record = {paramName, data};
         parameters.push(record);

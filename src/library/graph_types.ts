@@ -22,3 +22,7 @@ export interface Graph {
     nodes: graphNode[];
     outputNodeId: number;
 }
+
+export interface GraphEditorInfo {
+    nodePositions: Map<number, { x: number; y: number }>; // node_id to canvas coords
+}
