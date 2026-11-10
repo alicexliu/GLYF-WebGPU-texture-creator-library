@@ -1,4 +1,4 @@
-import { BinaryReader } from './binary_reader';
+import { BinaryReader } from '../binary_read_write';
 import { dataTypes, nodeDefinitions, nodeDefinitionById } from '../../definitions';
 import { GLYF_MAGIC_NUMBER } from '../glyf_types';
 import type { glyfHeader, glyfEditorInfo, NodePosition } from '../glyf_types';
@@ -6,7 +6,7 @@ import type { graphNode, graphConnection, Graph } from '../graph_types';
 
 function parseHeader(reader: BinaryReader) : glyfHeader {
     const header: glyfHeader = {
-        magic: reader.getUint32(), // TODO: is this what the magic number is supposed to be?
+        magic: reader.getUint32(),
         fileSize: reader.getUint32(),
         nodeCount: reader.getUint32(),
         outputNodeId: reader.getUint32()
@@ -46,7 +46,8 @@ function parseParameters(
     reader: BinaryReader, nodeType: number, parameterLength: number
 ) : Record<string, number | number[]> {
     // TODO
-    const definition = nodeDefinitionById.get(nodeType)
+    const definition = nodeDefinitionById.get(nodeType);
+    switch (definitio)
 }
 
 function parseEditorData(reader: BinaryReader, header: glyfHeader) : glyfEditorInfo {
@@ -91,7 +92,6 @@ async function loadGlyfFromUrl(url: string): Promise<Graph> {
     const resp = await fetch(url);
     if (!resp.ok) {
         throw new Error(`Error loading GLYF from url: ${resp.status}`);
-
     }
     
     const buffer = await resp.arrayBuffer();
@@ -102,11 +102,4 @@ async function loadGlyfFromUrl(url: string): Promise<Graph> {
 async function loadGlyfFromFile(file: File): Promise<Graph> {
     const buffer = await file.arrayBuffer();
     return parseGlyf(buffer);
-}
-
-
-// Parse Graph into a .glyf 
-function serializeGlyf(graph: Graph) {
-    // TODO
-    throw new Error("Unimplemented");
 }

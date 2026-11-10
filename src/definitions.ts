@@ -58,7 +58,7 @@ export const nodeDefinitions = {
         ],
 
         outputs: [
-            { name: "value", type: "float32" }
+            { name: "value", type: dataTypes.FLOAT32 }
         ]
     },
 
@@ -110,7 +110,7 @@ export const nodeDefinitions = {
         ],
 
         outputs: [
-            { name: "value", type: "float32" }
+            { name: "value", type: dataTypes.FLOAT32 }
         ]
     },
 }

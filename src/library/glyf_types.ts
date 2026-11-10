@@ -32,6 +32,6 @@ export interface NodePosition {
 
 export interface glyfEditorInfo {
     nodePositionData: NodePosition[];
-    metadataLength: number;         //4B
-    metadata: Uint8Array; // TODO: figure out if we actually have extra metadata to store
+    // metadataLength: number;         // 4B
+    // metadata: Uint8Array; // TODO: figure out if we actually have extra metadata to store
 }

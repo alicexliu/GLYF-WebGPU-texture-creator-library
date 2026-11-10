@@ -12,11 +12,14 @@ export interface graphNode {
     id: number,     // 4B
     type: number;   // 2B
     connections: graphConnection[];
-    inputValues: Record<string, graphValue>[]; // inputs from parent nodes
-    parameters: Record<string, graphValue>[]; // node-specific parameters
+    inputValues: Record<string, graphValue>; // inputs from parent nodes
+    parameters: Record<string, graphValue>; // node-specific parameters
+
+    x_coord: number, // 4B float
+    y_coord: number, // 4B float
 }
 
 export interface Graph {
-    nodes: Map<number, graphNode>;
+    nodes: graphNode[];
     outputNodeId: number;
 }
