@@ -26,6 +26,22 @@ export class BinaryReader {
         this.offset += 2;
         return val;
     }
+
+    getString(val: number) {
+        // TODO
+    }
+
+    getVec2(): [number, number] {
+        return [this.getFloat32(), this.getFloat32()];
+    }
+
+    getVec3(): [number, number, number] {
+        return [this.getFloat32(), this.getFloat32(), this.getFloat32()];
+    }
+
+    getVec4(): [number, number, number, number] {
+        return [this.getFloat32(), this.getFloat32(), this.getFloat32(), this.getFloat32()];
+    }
 }
 
 export class BinaryWriter {
@@ -53,5 +69,23 @@ export class BinaryWriter {
     setUint16(val: number) {
         this.view.setUint16(this.offset, val, true);
         this.offset += 2;
+    }
+
+    setVec2(val: [number, number]) {
+        this.setFloat32(val[0]);
+        this.setFloat32(val[1]);
+    }
+
+    setVec3(val: [number, number, number]) {
+        this.setFloat32(val[0]);
+        this.setFloat32(val[1]);
+        this.setFloat32(val[2]);
+    }
+
+    setVec4(val: [number, number, number, number]) {
+        this.setFloat32(val[0]);
+        this.setFloat32(val[1]);
+        this.setFloat32(val[2]);
+        this.setFloat32(val[3]);
     }
 }
