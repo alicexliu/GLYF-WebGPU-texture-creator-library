@@ -58,7 +58,7 @@ export const nodeDefinitions = {
     },
     Color: {
         typeId: 1,
-
+        name: "Color",
         parameters: [
             {
                 name: "value",
@@ -74,6 +74,7 @@ export const nodeDefinitions = {
 
     Constant: {
         typeId: 2,
+        name: "Constant",
 
         parameters: [
             {
@@ -90,6 +91,7 @@ export const nodeDefinitions = {
 
     Add: {
         typeId: 3,
+        name: "Add",
 
         parameters: [
             { name: "a",     type: dataTypes.FLOAT32,    socket: true,  default: 0.0 },
@@ -103,6 +105,7 @@ export const nodeDefinitions = {
 
     Invert: {
         typeId: 4,
+        name: "Invert",
 
         parameters: [
             { name: "value", type: dataTypes.VEC4, socket: true},
