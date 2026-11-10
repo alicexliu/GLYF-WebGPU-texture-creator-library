@@ -3,6 +3,7 @@ import { dataTypes, nodeDefinition } from '../../definitions';
 import { GLYF_MAGIC_NUMBER, GLYF_CONNECTION_BYTE_SIZE, glyfHeader } from '../glyf_types';
 import type { GraphNode, GraphConnection, Graph, GraphValue, GraphEditorInfo } from '../graph_types';
 
+// TODO: ADD MORE VALIDATION; probably use fileSize for some of it
 function parseHeader(reader: BinaryReader) : glyfHeader {
     const header: glyfHeader = {
         magic: reader.getUint32(),
@@ -22,8 +23,7 @@ function parseNode(reader: BinaryReader) : GraphNode {
     const id = reader.getUint32();
     const typeId = reader.getUint16();
 
-    const connectionLength = reader.getUint16();
-    const connectionCount = connectionLength / GLYF_CONNECTION_BYTE_SIZE; // total connection byte length / bytes per connection
+    const connectionCount = reader.getUint16();
     const connections = [];
     for (let i = 0; i < connectionCount; ++i) {
         connections.push(parseConnections(reader));
@@ -36,9 +36,9 @@ function parseNode(reader: BinaryReader) : GraphNode {
 
 function parseConnections(reader: BinaryReader) : GraphConnection {
     return {
-        inputSocket: reader.getUint16(),
         upstreamNodeId: reader.getUint32(),
-        upstreamSocket: reader.getUint16()
+        upstreamSocket: reader.getUint16(),
+        inputSocket: reader.getUint16()
     };
 }
 
@@ -107,11 +107,16 @@ function parseGlyf(buffer: ArrayBuffer, editor: boolean = false) : Graph {
         nodes.push(parseNode(reader));
     }
 
+    let editorInfo = undefined;
     if (editor) {
-        parseEditorData(reader, header);
+        editorInfo = parseEditorData(reader, header);
     }
 
-    return {nodes, outputNodeId: header.outputNodeId};
+    return {
+        nodes,
+        outputNodeId: header.outputNodeId,
+        editorInfo
+    };
 }
 
 // TOASK: do we want to store as urls....

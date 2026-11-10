@@ -1,3 +1,5 @@
+import { NodeType } from '../definitions'; 
+
 // Structs for GLYF file definition
 export const GLYF_MAGIC_NUMBER = 0x46594C47; // 'GLYF' little endian
 export const GLYF_HEADER_BYTE_SIZE = 16;
@@ -11,14 +13,14 @@ export interface glyfHeader {
 }
 
 export interface glyfConnection {
-    inputSocket: number;    // 2B - int16
     upstreamNodeId: number; // 4B - int32
     upstreamSocket: number; // 2B - int16
+    inputSocket: number;    // 2B - int16
 }
 
 export interface glyfNode {
     id: number;                 // 4B - int32
-    typeId: number;             // 2B - int16
+    typeId: NodeType;             // 2B - int16
     numConnections: number;     // 2B - int16
     connections: glyfConnection[];
     parameterData: Uint8Array;

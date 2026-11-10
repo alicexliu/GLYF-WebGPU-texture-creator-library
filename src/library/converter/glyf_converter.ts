@@ -72,15 +72,15 @@ function serializeNodes(graph: Graph) : Uint8Array {
 
         // node data
         writer.setUint32(node.id);
-        writer.setUint32(node.typeId);
+        writer.setUint16(node.typeId);
 
         // connections
         const connections = node.connections;
         writer.setUint16(connections.length);
         for (const connection of connections) {
-            writer.setUint16(connection.inputSocket);
             writer.setUint32(connection.upstreamNodeId);
             writer.setUint16(connection.upstreamSocket);
+            writer.setUint16(connection.inputSocket);
         }
 
         // parameters
@@ -92,7 +92,7 @@ function serializeNodes(graph: Graph) : Uint8Array {
         }
     }
 
-    return node_buffer.slice(0, writer.getOffset());;
+    return node_buffer.subarray(0, writer.getOffset());
 }
 
 function serializeEditor(graph: GraphEditorInfo) : Uint8Array {

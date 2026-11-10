@@ -1,8 +1,9 @@
-// Structs to load a texture graph and store in memory
+import { NodeType } from '../definitions'; 
 
+// Structs to load a texture graph and store in memory
 export interface GraphConnection {
-    inputSocket: number;    // 2B
     upstreamNodeId: number; // 4B
+    inputSocket: number;    // 2B
     upstreamSocket: number; // 2B
 }
 
@@ -10,7 +11,7 @@ export type GraphValue = number | number[];
 
 export interface GraphNode {
     id: number,         // 4B
-    typeId: number;     // 2B
+    typeId: NodeType;     // 2B
     connections: GraphConnection[];
     parameters: GraphValue[]; // node-specific parameters
 }
