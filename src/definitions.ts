@@ -80,13 +80,11 @@ export const nodeDefinitions = {
         inputs: [
             {
                 name: "a",
-                type: dataTypes.FLOAT32,
-                fallbackParameter: "a"
+                type: dataTypes.FLOAT32
             },
             {
                 name: "b",
-                type: dataTypes.FLOAT32,
-                fallbackParameter: "b"
+                type: dataTypes.FLOAT32
             },
         ],
 
@@ -107,6 +105,23 @@ export const nodeDefinitions = {
             { name: "value", type: "float32" }
         ]
     },
+
+    Invert: {
+        id: 3,
+
+        inputs: [
+            {
+                name: "value",
+                type: dataTypes.VEC4
+            },
+        ],
+
+        parameters: [],
+
+        outputs: [
+            { name: "value", type: dataTypes.VEC4 }
+        ]
+    }
 }
 
 export const nodeDefinitionById = new Map(
