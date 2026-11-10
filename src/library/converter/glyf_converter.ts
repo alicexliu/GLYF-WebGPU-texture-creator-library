@@ -1,5 +1,5 @@
 import { BinaryWriter } from '../binary_read_write';
-import { dataTypes, nodeDefinitions, nodeDefinitionById } from '../../definitions';
+import { dataTypes, nodeDefinitions } from '../../definitions';
 import { GLYF_MAGIC_NUMBER, GLYF_HEADER_BYTE_SIZE, GLYF_CONNECTION_BYTE_SIZE } from '../glyf_types';
 import type { GraphNode, GraphConnection, Graph, GraphValue, GraphEditorInfo } from '../graph_types';
 
@@ -65,7 +65,7 @@ function serializeNodes(graph: Graph) : Uint8Array {
     
     // iterate through each node
     for (const node of graph.nodes) {
-        const definition = nodeDefinitionById.get(node.typeId);
+        const definition = nodeDefinitions[node.typeId];
         if (!definition) {
             throw new Error(`Unknown node type ID: ${node.typeId}`);
         }

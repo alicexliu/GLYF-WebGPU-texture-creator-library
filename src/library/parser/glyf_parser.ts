@@ -1,5 +1,5 @@
 import { BinaryReader } from '../binary_read_write';
-import { dataTypes, nodeDefinitionById } from '../../definitions';
+import { dataTypes, nodeDefinition } from '../../definitions';
 import { GLYF_MAGIC_NUMBER, GLYF_CONNECTION_BYTE_SIZE, glyfHeader } from '../glyf_types';
 import type { GraphNode, GraphConnection, Graph, GraphValue, GraphEditorInfo } from '../graph_types';
 
@@ -70,7 +70,7 @@ function parseData(attributeType: { size: number; type: string; }, reader: Binar
 
 function parseParameters(reader: BinaryReader, nodeType: number) : GraphValue[] {
     // Read paramaters
-    let definition = nodeDefinitionById.get(nodeType);
+    let definition = nodeDefinition[nodeType];
     if (!definition) {
         throw new Error(`Unknown node type ID: ${nodeType}`);
     }

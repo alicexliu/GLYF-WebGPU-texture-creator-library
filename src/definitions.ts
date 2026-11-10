@@ -32,6 +32,22 @@ export const dataTypes = {
     }
 };
 
+// TODO: add more as needed
+export enum NodeType {
+    Output = 0,
+    Color = 1,
+    Constant = 2,
+    Add = 3,
+    Invert = 4,
+}
+
+export interface NodeDefinition {
+    typeId: NodeType;
+    name: string;
+    parameters: Array<{ name: string; type: { size: number; type: string; }; socket?: boolean; default?: any; }>;
+    outputs: Array<{ name: string; type: { size: number; type: string; } }>;
+}
+
 // NODE DEFINITIONS
 // TODO: add more as needed 
 // NOTE: i changed Color and constant to hold value in 
@@ -46,77 +62,55 @@ export const dataTypes = {
 // socket only -> input node required
 // default only -> can only be set manually
 // neither cant happen 
-export const nodeDefinitions = {
-    Output: {
-        typeId: 0,
-
+export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
+    [NodeType.Output]: {
+        typeId: NodeType.Output,
+        name: "Output",
         parameters: [
-            { name: "albedo",     type: dataTypes.VEC3,    socket: true },                       
-            { name: "normal",     type: dataTypes.VEC3,    socket: true,  default: [0.5, 0.5, 1.0] }, // (0,0,1) flattened
+            { name: "albedo", type: dataTypes.VEC3, socket: true },
+            { name: "normal", type: dataTypes.VEC3, socket: true, default: [0.5, 0.5, 1.0] },
         ],
         outputs: []
     },
-    Color: {
-        typeId: 1,
+    [NodeType.Color]: {
+        typeId: NodeType.Color,
         name: "Color",
         parameters: [
-            {
-                name: "value",
-                type: dataTypes.VEC4,
-                default: [0.0, 0.0, 0.0, 1.0]
-            },
+            { name: "value", type: dataTypes.VEC4, default: [0.0, 0.0, 0.0, 1.0] },
         ],
-
         outputs: [
             { name: "value", type: dataTypes.VEC4 }
         ]
     },
-
-    Constant: {
-        typeId: 2,
+    [NodeType.Constant]: {
+        typeId: NodeType.Constant,
         name: "Constant",
-
-        parameters: [
-            {
-                name: "value",
-                type: dataTypes.FLOAT32,
-                default: 0.0
-            },
+        parameters: [ 
+            { name: "value", type: dataTypes.FLOAT32, default: 0.0 }
         ],
-
         outputs: [
             { name: "value", type: dataTypes.FLOAT32 }
         ]
     },
-
-    Add: {
-        typeId: 3,
+    [NodeType.Add]: {
+        typeId: NodeType.Add,
         name: "Add",
-
         parameters: [
-            { name: "a",     type: dataTypes.FLOAT32,    socket: true,  default: 0.0 },
-            { name: "b",     type: dataTypes.FLOAT32,    socket: true,  default: 0.0 },
+            { name: "a", type: dataTypes.FLOAT32, socket: true, default: 0.0 },
+            { name: "b", type: dataTypes.FLOAT32, socket: true, default: 0.0 }
         ],
-
         outputs: [
             { name: "value", type: dataTypes.FLOAT32 }
         ]
     },
-
-    Invert: {
-        typeId: 4,
+    [NodeType.Invert]: {
+        typeId: NodeType.Invert,
         name: "Invert",
-
         parameters: [
-            { name: "value", type: dataTypes.VEC4, socket: true},
+            { name: "value", type: dataTypes.VEC4, socket: true }
         ],
-
         outputs: [
             { name: "value", type: dataTypes.VEC4 }
         ]
-    }
-}
-
-export const nodeDefinitionById = new Map(
-    Object.values(nodeDefinitions).map(def => [def.typeId, def])
-);
+    },
+};
