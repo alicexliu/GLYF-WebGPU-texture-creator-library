@@ -42,12 +42,55 @@ function parseConnections(reader: BinaryReader) : graphConnection {
     };
 }
 
-function parseParameters(
+// Helper to parse different dTypes
+function parseData(attributeType: number, reader: BinaryReader): number | number[] {
+    switch (attributeType) {
+            case dataTypes.VEC4:
+                return reader.getVec4();
+            case dataTypes.FLOAT32:
+                return reader.getFloat32();
+            case dataTypes.UINT16:
+                return reader.getUint16();
+            case dataTypes.UINT32:
+                return reader.getUint32();
+            case dataTypes.VEC2:
+                return reader.getVec2();
+            case dataTypes.VEC3:
+                return reader.getVec3();
+        }
+}
+
+function parseAttributes(
     reader: BinaryReader, nodeType: number, parameterLength: number
-) : Record<string, number | number[]> {
+) : Record<string, number | number[]>[] {
     // TODO
     const definition = nodeDefinitionById.get(nodeType);
-    switch (definitio)
+    let inputs : Record<string, number | number[]>[] = [];
+    let parameters : Record<string, number | number[]>[] = [];
+    let outputs : Record<string, number | number[]>[] = [];
+    // Read inputs
+    for (let i = 0; i < definition.inputs.length; ++i) {
+        const inputNme = definition.inputs[i].name;
+        const lenToSkip = inputNamelength;
+        reader.getString(lenToSkip);
+        const data = parseData(definition.inputs[i].type, reader);
+        record = {inputName: inputName, data};
+        parameters.push(record);
+    }
+
+    // Read paramaters
+    for (let i = 0; i < definition.parameters.length; ++i) {
+        const paramName = definition.parameters[i].name;
+        const lenToSkip = paramName.length;
+        reader.getString(lenToSkip);
+        const data = parseData(definition.parameters[i].type, reader);
+        record = {paramName, data};
+        parameters.push(record);
+    }
+
+    // Read output
+
+    return {inputs, parameters};
 }
 
 function parseEditorData(reader: BinaryReader, header: glyfHeader) : glyfEditorInfo {
