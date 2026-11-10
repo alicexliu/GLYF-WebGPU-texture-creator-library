@@ -1,8 +1,7 @@
 import { BinaryReader } from '../binary_read_write';
-import { dataTypes, nodeDefinitions, nodeDefinitionById } from '../../definitions';
-import { GLYF_MAGIC_NUMBER } from '../glyf_types';
-import type { glyfHeader, glyfEditorInfo, NodePosition } from '../glyf_types';
-import type { graphNode, graphConnection, Graph } from '../graph_types';
+import { dataTypes, nodeDefinitionById } from '../../definitions';
+import { GLYF_MAGIC_NUMBER, GLYF_CONNECTION_BYTE_SIZE, glyfHeader } from '../glyf_types';
+import type { GraphNode, GraphConnection, Graph, GraphValue, GraphEditorInfo } from '../graph_types';
 
 function parseHeader(reader: BinaryReader) : glyfHeader {
     const header: glyfHeader = {
@@ -19,22 +18,23 @@ function parseHeader(reader: BinaryReader) : glyfHeader {
     return header;
 }
 
-function parseNode(reader: BinaryReader) : graphNode {
+function parseNode(reader: BinaryReader) : GraphNode {
     const id = reader.getUint32();
-    const type = reader.getUint16();
-    const connectionCount = reader.getUint16();
+    const typeId = reader.getUint16();
+
+    const connectionLength = reader.getUint16();
+    const connectionCount = connectionLength / GLYF_CONNECTION_BYTE_SIZE; // total connection byte length / bytes per connection
     const connections = [];
     for (let i = 0; i < connectionCount; ++i) {
         connections.push(parseConnections(reader));
     }
     
-    const parameterLength = reader.getUint16();
-    const parameters = parseParameters(reader, type, parameterLength);
+    const parameters = parseParameters(reader, typeId);
     
-    return {id, type, connections, parameters};
+    return {id, typeId, connections, parameters};
 }
 
-function parseConnections(reader: BinaryReader) : graphConnection {
+function parseConnections(reader: BinaryReader) : GraphConnection {
     return {
         inputSocket: reader.getUint16(),
         upstreamNodeId: reader.getUint32(),
@@ -43,68 +43,57 @@ function parseConnections(reader: BinaryReader) : graphConnection {
 }
 
 // Helper to parse different dTypes
-function parseData(attributeType: { size: number; type: string; }, reader: BinaryReader): number | number[] {
+function parseData(attributeType: { size: number; type: string; }, reader: BinaryReader): GraphValue {
     switch (attributeType) {
         case dataTypes.VEC4:
             return reader.getVec4();
+
         case dataTypes.FLOAT32:
             return reader.getFloat32();
+
         case dataTypes.UINT16:
             return reader.getUint16();
+
         case dataTypes.UINT32:
             return reader.getUint32();
+
         case dataTypes.VEC2:
             return reader.getVec2();
+
         case dataTypes.VEC3:
             return reader.getVec3();
+
         default:
             throw new Error(`Unknown attribute type ID: ${attributeType}`);
     }
 }
 
-function parseAttributes(
-    reader: BinaryReader, nodeType: number, parameterLength: number
-) : Record<string, number | number[]>[] {
-    // TODO
-    const definition = nodeDefinitionById.get(nodeType);
+function parseParameters(reader: BinaryReader, nodeType: number) : GraphValue[] {
+    // Read paramaters
+    let definition = nodeDefinitionById.get(nodeType);
     if (!definition) {
         throw new Error(`Unknown node type ID: ${nodeType}`);
     }
 
-    let inputs : Record<string, number | number[]>[] = [];
-    let parameters : Record<string, number | number[]>[] = [];
-    let outputs : Record<string, number | number[]>[] = [];
-
-    // Read inputs
-    for (let i = 0; i < definition.inputs.length; ++i) {
-        const data = parseData(definition.inputs[i].type, reader);
-        record = {inputName: inputName, data};
-        parameters.push(record);
+    const parameters: GraphValue[] = [];
+    for (const parameter of definition.parameters) {
+        parameters.push(parseData(parameter.type, reader));
     }
 
-    // Read paramaters
-    for (let i = 0; i < definition.parameters.length; ++i) {
-        const data = parseData(definition.parameters[i].type, reader);
-        record = {paramName, data};
-        parameters.push(record);
-    }
-
-    // Read output
-
-    return {inputs, parameters};
+    return parameters;
 }
 
-function parseEditorData(reader: BinaryReader, header: glyfHeader) : glyfEditorInfo {
+function parseEditorData(reader: BinaryReader, header: glyfHeader) : GraphEditorInfo {
     // TODO: add any additional fields needed by the editor
-    let nodePositionData : NodePosition[] = [];
+    let nodePositions = new Map<number, [number, number]>();
     for (let i = 0; i < header.nodeCount; ++i) {
         const id = reader.getUint32();
         const x = reader.getFloat32();
         const y = reader.getFloat32();
-        nodePositionData.push({id, x, y});
+        nodePositions.set(id, [x, y]);
     }
     
-    return {nodePositionData };
+    return {nodePositions};
 }
 
 // Parse a GLYF file into a Graph in memory

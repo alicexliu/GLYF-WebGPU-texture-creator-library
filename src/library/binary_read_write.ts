@@ -56,6 +56,10 @@ export class BinaryWriter {
         }
     }
 
+    getOffset() : number {
+        return this.offset;
+    }
+
     setFloat32(val: number) {
         this.view.setFloat32(this.offset, val, true);
         this.offset += 4;
