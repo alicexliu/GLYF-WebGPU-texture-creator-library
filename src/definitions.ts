@@ -64,7 +64,7 @@ export interface NodeDefinition {
 // socket + default -> can be set manually, but input node overrides
 // socket only -> input node required
 // default only -> can only be set manually
-// neither cant happen 
+// neither -> not allowed
 export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
     [NodeType.Output]: {
         typeId: NodeType.Output,
