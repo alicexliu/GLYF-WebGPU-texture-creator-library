@@ -19,6 +19,7 @@ export interface GraphNode {
 export interface Graph {
     nodes: GraphNode[];
     outputNodeId: number;
+    editorInfo?: GraphEditorInfo;
 }
 
 export interface GraphEditorInfo {

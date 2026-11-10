@@ -1,4 +1,7 @@
 // DATA TYPES
+
+import { GraphValue } from "./library/graph_types";
+
 // TODO: add more as needed
 export const dataTypes = {
     FLOAT32: {
@@ -44,7 +47,7 @@ export enum NodeType {
 export interface NodeDefinition {
     typeId: NodeType;
     name: string;
-    parameters: Array<{ name: string; type: { size: number; type: string; }; socket?: boolean; default?: any; }>;
+    parameters: Array<{ name: string; type: { size: number; type: string; }; socket?: boolean; default?: GraphValue; }>;
     outputs: Array<{ name: string; type: { size: number; type: string; } }>;
 }
 

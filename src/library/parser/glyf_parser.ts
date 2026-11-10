@@ -1,6 +1,6 @@
 import { BinaryReader } from '../binary_read_write';
-import { dataTypes, nodeDefinition } from '../../definitions';
-import { GLYF_MAGIC_NUMBER, GLYF_CONNECTION_BYTE_SIZE, glyfHeader } from '../glyf_types';
+import { dataTypes, nodeDefinitions, NodeType } from '../../definitions';
+import { GLYF_MAGIC_NUMBER, glyfHeader } from '../glyf_types';
 import type { GraphNode, GraphConnection, Graph, GraphValue, GraphEditorInfo } from '../graph_types';
 
 // TODO: ADD MORE VALIDATION; probably use fileSize for some of it
@@ -21,7 +21,7 @@ function parseHeader(reader: BinaryReader) : glyfHeader {
 
 function parseNode(reader: BinaryReader) : GraphNode {
     const id = reader.getUint32();
-    const typeId = reader.getUint16();
+    const typeId = reader.getUint16() as NodeType;;
 
     const connectionCount = reader.getUint16();
     const connections = [];
@@ -70,7 +70,7 @@ function parseData(attributeType: { size: number; type: string; }, reader: Binar
 
 function parseParameters(reader: BinaryReader, nodeType: number) : GraphValue[] {
     // Read paramaters
-    let definition = nodeDefinition[nodeType];
+    let definition = nodeDefinitions[nodeType];
     if (!definition) {
         throw new Error(`Unknown node type ID: ${nodeType}`);
     }
@@ -108,7 +108,7 @@ function parseGlyf(buffer: ArrayBuffer, editor: boolean = false) : Graph {
     }
 
     let editorInfo = undefined;
-    if (editor) {
+    if (editor && reader.getOffset() < header.fileSize) {
         editorInfo = parseEditorData(reader, header);
     }
 

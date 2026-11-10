@@ -9,6 +9,10 @@ export class BinaryReader {
         this.view = new DataView(buffer);
     }
 
+    getOffset() : number {
+        return this.offset;
+    }
+
     getFloat32(): number {
         const val = this.view.getFloat32(this.offset, true);
         this.offset += 4;
