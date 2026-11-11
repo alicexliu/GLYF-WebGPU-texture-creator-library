@@ -49,8 +49,10 @@ export function buildNodeShader(def: NodeDefinition, nodeWGSL: string) {
         if (param.socket) {
             // @group(0) @binding(2+#i) var in#i: texture_2d<f32>;
             bindings.push(`@group(0) @binding(${2 + i}) var in${i}: texture_2d<f32>;`);
+
+            const fallbackForUV = param.name == "uv" && type == "vec2" ? "vec4f(uv, 0.0, 1.0)" : `params.values[${i}]`;
             // select socket tex or param, depending on connection 
-            reads.push(`let raw${i} = select(params.values[${i}], textureLoad(in${i}, pixel, 0), params.connected[${i}].x > 0.5);`);
+            reads.push(`let raw${i} = select(${fallbackForUV}, textureLoad(in${i}, pixel, 0), params.connected[${i}].x > 0.5);`);
         }
         // param/default
         else {

@@ -148,6 +148,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         typeId: NodeType.PerlinNoise,
         name: "Perlin Noise",
         parameters: [
+            { name: "uv", type: dataTypes.VEC2, socket: true, default: [0,0] },
             { name: "scale", type: dataTypes.FLOAT32, socket: true, default: 1.0 },
             { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] }
         ],
@@ -159,6 +160,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         typeId: NodeType.WorleyNoise,
         name: "Worley Noise",
         parameters: [
+            { name: "uv", type: dataTypes.VEC2, socket: true, default: [0,0] },
             { name: "scale", type: dataTypes.FLOAT32, socket: true, default: 8.0 },
             { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] }
         ],
@@ -170,6 +172,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         typeId: NodeType.FbmNoise,
         name: "FBM Noise",
         parameters: [
+            { name: "uv", type: dataTypes.VEC2, socket: true, default: [0,0] },
             { name: "scale", type: dataTypes.FLOAT32, socket: true, default: 8.0 },
             { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] },
             { name: "octaves", type: dataTypes.UINT32, socket: true, default: 4 }
