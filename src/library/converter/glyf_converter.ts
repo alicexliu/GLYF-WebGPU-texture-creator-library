@@ -27,7 +27,7 @@ function serializeHeader(graph: Graph, fileSize: number) : Uint8Array {
 }
 
 // Helper to write different dTypes
-function writeData(attributeType: { size: number; type: string; }, writer: BinaryWriter, value: GraphValue) {
+function writeData(attributeType: { size: number; type: string; }, writer: BinaryWriter, value: GraphValue | undefined) {
     switch (attributeType) {
         case dataTypes.FLOAT32:
             writer.setFloat32(value as number);
@@ -87,7 +87,17 @@ function serializeNodes(graph: Graph) : Uint8Array {
         const parameters = definition.parameters;
         for (let i = 0; i < parameters.length; ++i) {
             const def_parameter = parameters[i];
-            const parameter = node.parameters[i]
+
+            // if parameter is undefined, don't write any data
+            if (def_parameter.socket === true && def_parameter.default === undefined) {
+                continue; 
+            }
+
+            const parameter = node.parameters[i];
+            if (parameter === undefined) {
+                throw new Error(`Validation Error: Node ${node.id} missing required parameter '${def_parameter.name}'`);
+            }
+            
             writeData(def_parameter.type, writer, parameter);
         }
     }
@@ -111,7 +121,7 @@ function serializeEditor(graph: GraphEditorInfo) : Uint8Array {
 }
 
 // Parse Graph into a .glyf 
-function serializeGlyf(graph: Graph, graphEditorInfo: GraphEditorInfo) : Uint8Array {
+export function serializeGlyf(graph: Graph, graphEditorInfo: GraphEditorInfo) : Uint8Array {
     const nodes_buffer = serializeNodes(graph);
     const editor_buffer = serializeEditor(graphEditorInfo);
 
