@@ -4,6 +4,8 @@ import { Graph, GraphNode, GraphValue } from "../graph_types";
 import colorWGSL from "../node_shaders/generate/color.cs.wgsl?raw";
 import constantWGSL from "../node_shaders/generate/constant.cs.wgsl?raw";
 import addWGSL from "../node_shaders/combine/add.cs.wgsl?raw";
+import subtractWGSL from "../node_shaders/combine/subtract.cs.wgsl?raw";
+import multiplyWGSL from "../node_shaders/combine/multiply.cs.wgsl?raw";
 import invertWGSL from "../node_shaders/combine/invert.cs.wgsl?raw";
 import blendWGSL from "../node_shaders/combine/blend.cs.wgsl?raw";
 import perlinWGSL from "../node_shaders/generate/perlin.cs.wgsl?raw";
@@ -15,6 +17,8 @@ export const nodeWGSL = {
     [NodeType.Color]: {name: "color", source: colorWGSL},
     [NodeType.Constant]: {name: "constant", source: constantWGSL},
     [NodeType.Add]: {name: "add", source: addWGSL},
+    [NodeType.Subtract]: {name: "subtract", source: subtractWGSL},
+    [NodeType.Multiply]: {name: "multiply", source: multiplyWGSL},
     [NodeType.Invert]: {name: "invert", source: invertWGSL},
     [NodeType.Blend]: {name: "blend", source: blendWGSL},
     [NodeType.PerlinNoise]: {name: "perlin", source: perlinWGSL},
