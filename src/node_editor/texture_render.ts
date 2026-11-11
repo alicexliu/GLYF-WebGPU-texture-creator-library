@@ -25,14 +25,15 @@
         sampler: GPUSampler;
 
 
-        constructor(stage: Stage) {
+        constructor(stage: Stage, texture: GPUTexture) {
             super(stage);
 
-            this.outputTexture = renderer.device.createTexture({
-                size: [512, 512],
-                format: "rgba16float",
-                usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
-            });
+            // this.outputTexture = renderer.device.createTexture({
+            //     size: [512, 512],
+            //     format: "rgba16float",
+            //     usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+            // });
+            this.outputTexture = texture;
             this.outputTextureView = this.outputTexture.createView();
 
             this.sampler = renderer.device.createSampler({ magFilter: "linear", minFilter: "linear" });
@@ -154,14 +155,14 @@
             const encoder = renderer.device.createCommandEncoder();
             
             // compute pass 
-            const computePass = encoder.beginComputePass({
-                label: "texture compute pass"
-            });
-            computePass.setPipeline(this.textureComputePipeline);
-            computePass.setBindGroup(0, this.texComputeBindGroup);
-            computePass.dispatchWorkgroups(512 / 8, 512 / 8);
+            // const computePass = encoder.beginComputePass({
+            //     label: "texture compute pass"
+            // });
+            // computePass.setPipeline(this.textureComputePipeline);
+            // computePass.setBindGroup(0, this.texComputeBindGroup);
+            // computePass.dispatchWorkgroups(512 / 8, 512 / 8);
             
-            computePass.end();
+            // computePass.end();
         
             // render pass
             const renderPass = encoder.beginRenderPass({

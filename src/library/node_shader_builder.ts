@@ -99,7 +99,7 @@ export function buildNodeShader(def: NodeDefinition, nodeWGSL: string) {
 // values: array<vec4f, N>
 // connected: array<vec4f, N>
 export function packParams(def: NodeDefinition, values: (GraphValue | undefined)[], 
-                           connected: boolean[]): Float32Array {
+                           connected: boolean[]): Float32Array<ArrayBuffer> {
     const n = Math.max(def.parameters.length, 1);
     // n * (vec4) * 2
     const data = new Float32Array(n * 8);             

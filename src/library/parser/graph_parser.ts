@@ -1,13 +1,13 @@
 // Parsing to generate WGSL for each texture Graph
 
-import { Graph, GraphNode } from "../graph_types";
+import { Graph, GraphNode, GraphValue } from "../graph_types";
 import colorWGSL from "../node_shaders/generate/color.cs.wgsl?raw";
 import constantWGSL from "../node_shaders/generate/constant.cs.wgsl?raw";
 import addWGSL from "../node_shaders/combine/add.cs.wgsl?raw";
 import invertWGSL from "../node_shaders/combine/invert.cs.wgsl?raw";
-import { NodeType } from "../../definitions";
+import { nodeDefinitions, NodeType } from "../../definitions";
 
-const nodeWGSL = {
+export const nodeWGSL = {
     [NodeType.Color]: {name: "color", source: colorWGSL},
     [NodeType.Constant]: {name: "constant", source: constantWGSL},
     [NodeType.Add]: {name: "add", source: addWGSL},
@@ -40,7 +40,7 @@ function dfs_visit(
 
 // Tarjan's to sort Graph (which should be DAG)
 // Returns nodes in decreasing order of finish time
-function topoSort(G: Graph) {
+export function topoSort(G: Graph) {
     // perform DFS
     // 0=WHITE, 1=GRAY, 2=BLACK
     const nodeColor = new Map<GraphNode, number>();
@@ -60,12 +60,46 @@ function topoSort(G: Graph) {
     return f;
 }
 
-function generateGraphWGSL(G: Graph) : string {
-    const orderedNodes = topoSort(G);
-    const outputNode = orderedNodes[orderedNodes.length - 1];
-    if (!outputNode || outputNode.typeId !== NodeType.Output) {
-        throw new Error("No valid output node");
+// Helper to get the input sockets for a node
+export function getInputs(
+    node: GraphNode, textures: Map<number, GPUTexture>
+): Map<number, GPUTexture> {
+    if (!nodeDefinitions[node.typeId]) {
+        throw new Error(`Invalid node type: ${node.typeId}`);
     }
 
-    
+    const inputs = new Map<number, GPUTexture>();
+
+    for (const conn of node.connections) {
+        const texture = textures.get(conn.upstreamNodeId);
+        if (!texture) {
+            throw new Error(`Missing output from input node ${conn.upstreamNodeId}`);
+        }
+        inputs.set(conn.inputSocket, texture);
+    }
+
+    return inputs;
+}
+
+// Helper to get the input values for a node
+export function getValues(
+    node: GraphNode,
+    inputs: Map<number, GPUTexture>
+): (GraphValue | undefined)[] {
+    const values: (GraphValue | undefined)[] = [];
+    const nodeDefn = nodeDefinitions[node.typeId];
+    for (let i = 0; i < nodeDefn.parameters.length; ++i) {
+        const val = node.parameters[i] ?? nodeDefn.parameters[i].default;
+        if (!inputs.has(i)) {
+            if (nodeDefn.parameters[i].socket && nodeDefn.parameters[i].default == undefined) {
+                throw new Error(`Missing input connection`);
+            }
+            if (val == undefined) {
+                throw new Error(`${nodeDefn.parameters[i].name} missing for node ${node.id}`)
+            }
+        }
+        values.push(val);
+    }
+
+    return values;
 }
