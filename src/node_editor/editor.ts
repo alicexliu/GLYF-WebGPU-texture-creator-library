@@ -88,6 +88,7 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     AreaExtensions.simpleNodesOrder(area);
     AreaExtensions.zoomAt(area, editor.getNodes()); 
     
+    onGraphChange(Rete2Graph(editor));
     return editor;
 }
 

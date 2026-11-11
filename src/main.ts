@@ -7,14 +7,34 @@ import { TextureRenderer } from './node_editor/texture_render';
 import { setupLoaders, Scene } from './stage/scene';
 import { Camera } from './stage/camera';
 import { Stage } from './stage/stage';
-import { createEditor } from './node_editor/editor';
+import { createEditor, Rete2Graph } from './node_editor/editor';
 import { Graph } from './library/graph_types';
 import { NodeType } from './definitions';
 import { GraphExecution } from './library/parser/graph_execution';
 
+let execution: GraphExecution;
+
+async function updateGraph(graph: Graph) {
+    try {
+        const newExecution = await GraphExecution.create(device, graph);
+        const old = execution;
+        execution = newExecution;
+        setRenderer();
+        old?.destroy();
+    } catch (e) {
+        console.error("Error executing graph:", e);
+    }
+}
+
+
 // get the GPU adapter + device
 await initWebGPU();
-await createEditor(document.getElementById("rete")!, g => console.log(g)); 
+
+let ready = false
+const editor = await createEditor(document.getElementById("rete")!, g => {if (ready) void updateGraph(g)});
+ready = true;
+await updateGraph(Rete2Graph(editor));
+
 // todo
 // pass graph to the Graph -> Texture func
 
@@ -33,46 +53,6 @@ document.body.appendChild(stats.dom);
 const gui = new GUI();
 
 const stage = new Stage(scene, camera, stats);
-
-
-// TODO: remove this later, this is just dummy to test the graph execution
-const graph: Graph = {
-    outputNodeId: 2,
-    nodes: [
-        {
-            id: 0,
-            typeId: NodeType.Color,
-            parameters: [[0, 1, 1, 1]],
-            connections: [],
-        },
-        {
-            id: 1,
-            typeId: NodeType.Invert,
-            parameters: [],
-            connections: [
-                {
-                    upstreamNodeId: 0,
-                    upstreamSocket: 0,
-                    inputSocket: 0,
-                },
-            ],
-        },
-        {
-            id: 2,
-            typeId: NodeType.Output,
-            parameters: [],
-            connections: [
-                {
-                    upstreamNodeId: 1,
-                    upstreamSocket: 0,
-                    inputSocket: 0,
-                },
-            ],
-        },
-    ],
-};
-
-const execution = await GraphExecution.create(device, graph);
 
 var renderer: Renderer | undefined;
 
