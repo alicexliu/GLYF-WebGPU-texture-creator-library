@@ -10,9 +10,30 @@
 
   <body>
     <div id="app">
-        <div id="rete"></div>
-        <canvas id="mainCanvas"></canvas>
-  </div>
+      <div id="rete"></div>
+      <div
+        id="editorPreviewDivider"
+        class="splitter vertical-splitter"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize node editor and preview"
+        tabindex="0"
+      ></div>
+      <main id="mainWorkspace">
+        <div id="canvasPane">
+          <canvas id="mainCanvas" aria-label="WebGPU texture preview"></canvas>
+        </div>
+        <div
+          id="previewPanelDivider"
+          class="splitter horizontal-splitter"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize preview and reserved panel"
+          tabindex="0"
+        ></div>
+        <div id="reservedPanel" aria-label="Reserved panel"></div>
+      </main>
+    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

@@ -1,4 +1,5 @@
 import { NodeEditor, GetSchemes, ClassicPreset } from "rete";
+import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { AreaPlugin } from "rete-area-plugin";
 import { ReactPlugin, Presets, ReactArea2D } from "rete-react-plugin";
@@ -6,7 +7,7 @@ import { ConnectionPlugin, Presets as ConnectionPresets } from "rete-connection-
 import { AreaExtensions } from "rete-area-plugin";
 
 // custom nodes 
-import { graphEditNode } from "./graph_edit_node";
+import { getControlLabel, graphEditNode } from "./graph_edit_node";
 import { NodeType } from "../definitions";
 
 import type { Graph, GraphNode, GraphConnection } from "../library/graph_types";
@@ -31,7 +32,21 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     // enables the inclusion of custom viewable elements
     const render = new ReactPlugin<Schemes, AreaExtra>({ createRoot });
 
-    render.addPreset(Presets.classic.setup());
+    render.addPreset(Presets.classic.setup({
+        customize: {
+            control: ({ payload }) => {
+                const label = getControlLabel(payload);
+                if (!label || !(payload instanceof ClassicPreset.InputControl)) return null;
+
+                return ({ data }) => createElement(
+                    "div",
+                    { className: "rete-parameter-control" },
+                    createElement("span", { className: "rete-parameter-label" }, label),
+                    createElement(Presets.classic.Control, { data })
+                );
+            },
+        },
+    }));
 
     editor.use(area);
     area.use(render);

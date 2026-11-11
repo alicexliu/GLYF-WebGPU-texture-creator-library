@@ -1,28 +1,84 @@
 html, body {
     margin: 0;
     height: 100%;
-}
-
-#mainCanvas {
-    display: block;
-    width: 100%;
-    height: 100%;
+    overflow: hidden;
 }
 
 #app {
     display: flex;
     width: 100%;
     height: 100%;
+    min-width: 0;
 }
 
 #rete {
-    flex: 1;
+    flex: 3 1 0;
+    min-width: 140px;
     height: 100%;
+    background: #1e1e1e;
+    overflow: hidden;
+}
+
+#mainWorkspace {
+    display: flex;
+    flex: 2 1 0;
+    flex-direction: column;
+    min-width: 220px;
+    min-height: 0;
+    background: #1e1e1e;
+}
+
+#canvasPane {
+    display: flex;
+    flex: 3 1 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 120px;
+    overflow: hidden;
     background: #1e1e1e;
 }
 
 #mainCanvas {
     display: block;
-    width: 512px;
-    height: 512px;
+}
+
+#reservedPanel {
+    flex: 1 1 0;
+    min-height: 80px;
+    background: #1e1e1e;
+}
+
+.splitter {
+    flex: 0 0 6px;
+    z-index: 1;
+    background: #3a3a3a;
+    touch-action: none;
+    user-select: none;
+}
+
+.splitter:hover,
+.splitter:focus-visible {
+    background: #568ac2;
+    outline: none;
+}
+
+.vertical-splitter {
+    cursor: col-resize;
+}
+
+.horizontal-splitter {
+    cursor: row-resize;
+}
+
+.rete-parameter-control {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 8px;
+}
+
+.rete-parameter-label {
+    color: #ddd;
+    font-size: 12px;
 }
