@@ -5,6 +5,7 @@ import colorWGSL from "../node_shaders/generate/color.cs.wgsl?raw";
 import constantWGSL from "../node_shaders/generate/constant.cs.wgsl?raw";
 import addWGSL from "../node_shaders/combine/add.cs.wgsl?raw";
 import invertWGSL from "../node_shaders/combine/invert.cs.wgsl?raw";
+import blendWGSL from "../node_shaders/combine/blend.cs.wgsl?raw";
 import perlinWGSL from "../node_shaders/generate/perlin.cs.wgsl?raw";
 import worleyWGSL from "../node_shaders/generate/worley.cs.wgsl?raw";
 import fbmWGSL from "../node_shaders/generate/fbm.cs.wgsl?raw";
@@ -15,6 +16,7 @@ export const nodeWGSL = {
     [NodeType.Constant]: {name: "constant", source: constantWGSL},
     [NodeType.Add]: {name: "add", source: addWGSL},
     [NodeType.Invert]: {name: "invert", source: invertWGSL},
+    [NodeType.Blend]: {name: "blend", source: blendWGSL},
     [NodeType.PerlinNoise]: {name: "perlin", source: perlinWGSL},
     [NodeType.WorleyNoise]: {name: "worley", source: worleyWGSL},
     [NodeType.FbmNoise]: {name: "fbm", source: fbmWGSL},
