@@ -42,6 +42,12 @@ export enum NodeType {
     Constant = 2,
     Add = 3,
     Invert = 4,
+    Subtract = 5,
+    Multiply = 6,
+    PerlinNoise = 7,
+    WorleyNoise = 8,
+    FbmNoise = 9,
+    UVTransform = 10,
 }
 
 export interface NodeDefinition {
@@ -106,6 +112,28 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "value", type: dataTypes.FLOAT32 }
         ]
     },
+    [NodeType.Subtract]: {
+        typeId: NodeType.Subtract,
+        name: "Subtract",
+        parameters: [
+            { name: "a", type: dataTypes.FLOAT32, socket: true, default: 0.0 },
+            { name: "b", type: dataTypes.FLOAT32, socket: true, default: 0.0 }
+        ],
+        outputs: [
+            { name: "value", type: dataTypes.FLOAT32 }
+        ]
+    },
+    [NodeType.Multiply]: {
+        typeId: NodeType.Multiply,
+        name: "Multiply",
+        parameters: [
+            { name: "a", type: dataTypes.FLOAT32, socket: true, default: 0.0 },
+            { name: "b", type: dataTypes.FLOAT32, socket: true, default: 0.0 }
+        ],
+        outputs: [
+            { name: "value", type: dataTypes.FLOAT32 }
+        ]
+    },
     [NodeType.Invert]: {
         typeId: NodeType.Invert,
         name: "Invert",
@@ -114,6 +142,53 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         outputs: [
             { name: "value", type: dataTypes.VEC4 }
+        ]
+    },
+    [NodeType.PerlinNoise]: {
+        typeId: NodeType.PerlinNoise,
+        name: "Perlin Noise",
+        parameters: [
+            { name: "scale", type: dataTypes.FLOAT32, socket: true, default: 1.0 },
+            { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] }
+        ],
+        outputs: [
+            { name: "value", type: dataTypes.FLOAT32 }
+        ]
+    },
+    [NodeType.WorleyNoise]: {
+        typeId: NodeType.WorleyNoise,
+        name: "Worley Noise",
+        parameters: [
+            { name: "scale", type: dataTypes.FLOAT32, socket: true, default: 8.0 },
+            { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] }
+        ],
+        outputs: [
+            { name: "value", type: dataTypes.FLOAT32 }
+        ]
+    },
+    [NodeType.FbmNoise]: {
+        typeId: NodeType.FbmNoise,
+        name: "FBM Noise",
+        parameters: [
+            { name: "scale", type: dataTypes.FLOAT32, socket: true, default: 8.0 },
+            { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] },
+            { name: "octaves", type: dataTypes.UINT32, socket: true, default: 4 }
+        ],
+        outputs: [
+            { name: "value", type: dataTypes.FLOAT32 }
+        ]
+    },
+    [NodeType.UVTransform]: {
+        typeId: NodeType.UVTransform,
+        name: "UV Transform",
+        parameters: [
+            { name: "uv", type: dataTypes.VEC2, socket: true },
+            { name: "scale", type: dataTypes.VEC2, socket: true, default: [1.0, 1.0] },
+            { name: "rotation", type: dataTypes.FLOAT32, socket: true, default: 0.0 },
+            { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] }
+        ],
+        outputs: [
+            { name: "value", type: dataTypes.VEC2 }
         ]
     },
 };
