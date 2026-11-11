@@ -11,6 +11,7 @@ import { createEditor, Rete2Graph } from './node_editor/editor';
 import { Graph } from './library/graph_types';
 import { NodeType } from './definitions';
 import { GraphExecution } from './library/parser/graph_execution';
+import { setupResizableLayout } from './layout';
 
 let execution: GraphExecution;
 
@@ -28,6 +29,7 @@ async function updateGraph(graph: Graph) {
 
 
 // get the GPU adapter + device
+setupResizableLayout();
 await initWebGPU();
 
 let ready = false

@@ -38,6 +38,7 @@ export class Camera {
     uniformsBuffer: GPUBuffer;
 
     projMat: Mat4 = mat4.create();
+    private projectionAspectRatio = aspectRatio;
     cameraPos: Vec3 = vec3.create(-7, 2, 0);
     cameraFront: Vec3 = vec3.create(0, 0, -1);
     cameraUp: Vec3 = vec3.create(0, 1, 0);
@@ -149,6 +150,16 @@ export class Camera {
 
     onFrame(deltaTime: number) {
         this.processInput(deltaTime);
+
+        if (this.projectionAspectRatio !== aspectRatio) {
+            this.projectionAspectRatio = aspectRatio;
+            this.projMat = mat4.perspective(
+                toRadians(fovYDegrees),
+                aspectRatio,
+                Camera.nearPlane,
+                Camera.farPlane
+            );
+        }
 
         const lookPos = vec3.add(this.cameraPos, vec3.scale(this.cameraFront, 1));
         const viewMat = mat4.lookAt(this.cameraPos, lookPos, [0, 1, 0]);

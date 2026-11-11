@@ -6,6 +6,12 @@ import type { GraphNode, GraphConnection, GraphValue } from "../library/graph_ty
 
 // socket map
 const sockets = new Map<string, ClassicPreset.Socket>();
+const controlLabels = new WeakMap<ClassicPreset.Control, string>();
+
+export function getControlLabel(control: ClassicPreset.Control) {
+    return controlLabels.get(control);
+}
+
 function getSocket(type: string) {
     if (!sockets.has(type)) {
         sockets.set(type, new ClassicPreset.Socket(type));
@@ -49,6 +55,7 @@ export class graphEditNode extends ClassicPreset.Node {
             if (param.default !== undefined) {
                 this.params[i] = structuredClone(param.default); // deep copy
                 control = this.makeControl(i, param.type.type); 
+                controlLabels.set(control, param.name);
             }
 
             // socket -> use 

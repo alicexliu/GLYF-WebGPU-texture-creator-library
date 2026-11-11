@@ -17,12 +17,25 @@ export var materialBindGroupLayout: GPUBindGroupLayout;
 // CHECKITOUT: this function initializes WebGPU and also creates some bind group layouts shared by all the renderers
 export async function initWebGPU() {
     canvas = document.getElementById("mainCanvas") as HTMLCanvasElement;
+    const canvasPane = document.getElementById("canvasPane")!;
 
-    const devicePixelRatio = window.devicePixelRatio;
-    canvas.width = canvas.clientWidth * devicePixelRatio;
-    canvas.height = canvas.clientHeight * devicePixelRatio;
+    const resizeCanvas = () => {
+        const devicePixelRatio = window.devicePixelRatio || 1;
+        const size = Math.min(canvasPane.clientWidth, canvasPane.clientHeight);
+        canvas.style.width = `${size}px`;
+        canvas.style.height = `${size}px`;
+        const width = Math.round(size * devicePixelRatio);
+        const height = width;
 
-    aspectRatio = canvas.width / canvas.height;
+        if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+        }
+        if (height > 0) {
+            aspectRatio = width / height;
+        }
+    };
+    resizeCanvas();
 
     if (!navigator.gpu)
     {
@@ -48,6 +61,8 @@ export async function initWebGPU() {
         device: device,
         format: canvasFormat,
     });
+    new ResizeObserver(resizeCanvas).observe(canvasPane);
+    window.addEventListener("resize", resizeCanvas);
 
     console.log("WebGPU init successsful");
 

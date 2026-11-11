@@ -1,12 +1,14 @@
 import { NodeEditor, GetSchemes, ClassicPreset } from "rete";
+import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { AreaPlugin } from "rete-area-plugin";
 import { ReactPlugin, Presets, ReactArea2D } from "rete-react-plugin";
 import { ConnectionPlugin, Presets as ConnectionPresets } from "rete-connection-plugin"
 import { AreaExtensions } from "rete-area-plugin";
+import { serializeGlyf } from "../library/converter/glyf_converter";
 
 // custom nodes 
-import { graphEditNode } from "./graph_edit_node";
+import { getControlLabel, graphEditNode } from "./graph_edit_node";
 import { NodeType } from "../definitions";
 
 import type { Graph, GraphNode, GraphConnection } from "../library/graph_types";
@@ -31,7 +33,21 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     // enables the inclusion of custom viewable elements
     const render = new ReactPlugin<Schemes, AreaExtra>({ createRoot });
 
-    render.addPreset(Presets.classic.setup());
+    render.addPreset(Presets.classic.setup({
+        customize: {
+            control: ({ payload }) => {
+                const label = getControlLabel(payload);
+                if (!label || !(payload instanceof ClassicPreset.InputControl)) return null;
+
+                return ({ data }) => createElement(
+                    "div",
+                    { className: "rete-parameter-control" },
+                    createElement("span", { className: "rete-parameter-label" }, label),
+                    createElement(Presets.classic.Control, { data })
+                );
+            },
+        },
+    }));
 
     editor.use(area);
     area.use(render);
@@ -87,6 +103,46 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     AreaExtensions.selectableNodes(area, AreaExtensions.selector(), { accumulating: AreaExtensions.accumulateOnCtrl() });
     AreaExtensions.simpleNodesOrder(area);
     AreaExtensions.zoomAt(area, editor.getNodes()); 
+
+    const exportButton = document.getElementById("exportGlyfButton") as HTMLButtonElement;
+    const exportStatus = document.getElementById("exportStatus")!;
+    let exportToastTimeout: number | undefined;
+    const showExportToast = (message: string, isError = false) => {
+        window.clearTimeout(exportToastTimeout);
+        exportStatus.textContent = message;
+        exportStatus.classList.toggle("error", isError);
+        exportStatus.classList.add("visible");
+        exportToastTimeout = window.setTimeout(() => {
+            exportStatus.classList.remove("visible");
+        }, 2500);
+    };
+
+    exportButton.addEventListener("click", () => {
+        try {
+            const graph = Rete2Graph(editor);
+            const graphEditorInfo = {
+                nodePositions: new Map(
+                    [...area.nodeViews].map(([id, view]) => [
+                        Number(id),
+                        [view.position.x, view.position.y] as [number, number],
+                    ])
+                ),
+            };
+            const bytes = serializeGlyf(graph, graphEditorInfo);
+            const blob = new Blob([bytes], { type: "application/octet-stream" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            const filename = "texture.glyf";
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+            showExportToast(`Downloaded ${filename}`);
+        } catch (error) {
+            console.error("Failed to export GLYF graph:", error);
+            showExportToast("Export failed; see console", true);
+        }
+    });
     
     onGraphChange(Rete2Graph(editor));
     return editor;
