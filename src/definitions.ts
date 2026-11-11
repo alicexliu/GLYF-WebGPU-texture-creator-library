@@ -48,6 +48,7 @@ export enum NodeType {
     WorleyNoise = 8,
     FbmNoise = 9,
     UVTransform = 10,
+    Blend = 11,
 }
 
 export interface NodeDefinition {
@@ -191,4 +192,16 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "value", type: dataTypes.VEC2 }
         ]
     },
+    [NodeType.Blend]: {
+        typeId: NodeType.Blend, 
+        name: "Blend", 
+        parameters: [
+            { name: "a", type: dataTypes.VEC4, socket: true },
+            { name: "b", type: dataTypes.VEC4, socket: true },
+            { name: "factor", type: dataTypes.FLOAT32, socket: true, default: 0.5 }
+        ],
+        outputs: [
+            { name: "value", type: dataTypes.VEC4 }
+        ]
+    }
 };

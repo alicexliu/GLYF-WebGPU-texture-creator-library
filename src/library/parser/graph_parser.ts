@@ -5,6 +5,7 @@ import colorWGSL from "../node_shaders/generate/color.cs.wgsl?raw";
 import constantWGSL from "../node_shaders/generate/constant.cs.wgsl?raw";
 import addWGSL from "../node_shaders/combine/add.cs.wgsl?raw";
 import invertWGSL from "../node_shaders/combine/invert.cs.wgsl?raw";
+import blendWGSL from "../node_shaders/combine/blend.cs.wgsl?raw";
 import { nodeDefinitions, NodeType } from "../../definitions";
 
 export const nodeWGSL = {
@@ -12,6 +13,7 @@ export const nodeWGSL = {
     [NodeType.Constant]: {name: "constant", source: constantWGSL},
     [NodeType.Add]: {name: "add", source: addWGSL},
     [NodeType.Invert]: {name: "invert", source: invertWGSL},
+    [NodeType.Blend]: {name: "blend", source: blendWGSL},
 };
 
 // dfs node visit helper for tarjan's
