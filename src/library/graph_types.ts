@@ -13,7 +13,7 @@ export interface GraphNode {
     id: number,         // 4B
     typeId: NodeType;     // 2B
     connections: GraphConnection[];
-    parameters: GraphValue[]; // node-specific parameters
+    parameters: (GraphValue | undefined)[]; // node-specific parameters
 }
 
 export interface Graph {

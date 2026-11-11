@@ -68,16 +68,22 @@ function parseData(attributeType: { size: number; type: string; }, reader: Binar
     }
 }
 
-function parseParameters(reader: BinaryReader, nodeType: number) : GraphValue[] {
+function parseParameters(reader: BinaryReader, nodeType: NodeType) : (GraphValue | undefined)[] {
     // Read paramaters
     let definition = nodeDefinitions[nodeType];
     if (!definition) {
         throw new Error(`Unknown node type ID: ${nodeType}`);
     }
 
-    const parameters: GraphValue[] = [];
+    const parameters: (GraphValue | undefined)[] = [];
     for (const parameter of definition.parameters) {
-        parameters.push(parseData(parameter.type, reader));
+        // no values are parsed when undefined
+        if (parameter.socket === true && parameter.default === undefined) {
+            parameters.push(undefined);
+        } else {
+            const parsedValue = parseData(parameter.type, reader);
+            parameters.push(parsedValue);
+        }
     }
 
     return parameters;
@@ -97,7 +103,7 @@ function parseEditorData(reader: BinaryReader, header: glyfHeader) : GraphEditor
 }
 
 // Parse a GLYF file into a Graph in memory
-function parseGlyf(buffer: ArrayBuffer, editor: boolean = false) : Graph {
+export function parseGlyf(buffer: ArrayBuffer, editor: boolean = false) : Graph {
     const reader = new BinaryReader(buffer);
     const header = parseHeader(reader);
 
