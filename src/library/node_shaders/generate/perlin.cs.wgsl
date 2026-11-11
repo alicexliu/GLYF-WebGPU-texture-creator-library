@@ -1,5 +1,10 @@
 fn hash2(p: vec2f) -> f32 {
-    return fract(sin(dot(p, vec2f(127.1, 311.7))) * 43758.5453);
+    let q = bitcast<vec2u>(vec2i(p));
+    var h = (q.x * 0x9e3779b9u) ^ (q.y * 0x85ebca6bu);
+    h = (h ^ (h >> 16u)) * 0x7feb352du;
+    h = (h ^ (h >> 15u)) * 0x846ca68bu;
+    h = h ^ (h >> 16u);
+    return f32(h >> 8u) * (1.0 / 16777216.0);
 }
 
 fn gradient(p: vec2f) -> vec2f {
