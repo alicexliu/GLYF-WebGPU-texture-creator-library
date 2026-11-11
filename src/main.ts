@@ -15,15 +15,17 @@ import { setupResizableLayout } from './layout';
 
 let execution: GraphExecution;
 
-async function updateGraph(graph: Graph) {
+async function updateGraph(graph: Graph): Promise<boolean> {
     try {
         const newExecution = await GraphExecution.create(device, graph);
         const old = execution;
         execution = newExecution;
         setRenderer();
         old?.destroy();
+        return true;
     } catch (e) {
         console.error("Error executing graph:", e);
+        return false;
     }
 }
 
@@ -33,7 +35,7 @@ setupResizableLayout();
 await initWebGPU();
 
 let ready = false
-const editor = await createEditor(document.getElementById("rete")!, g => {if (ready) void updateGraph(g)});
+const editor = await createEditor(document.getElementById("rete")!, g => ready ? updateGraph(g) : undefined);
 ready = true;
 await updateGraph(Rete2Graph(editor));
 

@@ -32,7 +32,7 @@ export class graphEditNode extends ClassicPreset.Node {
     typeId: NodeType;
     params: (GraphValue | undefined)[] = [];        
 
-    constructor(type: NodeType) {
+    constructor(type: NodeType, id?: number, parameters?: (GraphValue | undefined)[]) {
         // pass name of node type to super 
         const def = nodeDefinitions[type];
         if (!def) throw new Error(`undefined node type: ${type}`);
@@ -40,7 +40,8 @@ export class graphEditNode extends ClassicPreset.Node {
 
         // custom ============================================================
 
-        this.graphId = graphEditNode.nextId++;
+        this.graphId = id ?? graphEditNode.nextId;
+        graphEditNode.nextId = Math.max(graphEditNode.nextId, this.graphId + 1);
         this.id = String(this.graphId); // id for Rete.js
         this.typeId = type;
         
@@ -51,9 +52,12 @@ export class graphEditNode extends ClassicPreset.Node {
         for (const [i, param] of def.parameters.entries()) {
 
             var control = undefined;
+            const parameterValue = parameters?.[i] ?? param.default;
             // default -> use 
+            if (parameterValue !== undefined) {
+                this.params[i] = structuredClone(parameterValue); // deep copy
+            }
             if (param.default !== undefined) {
-                this.params[i] = structuredClone(param.default); // deep copy
                 control = this.makeControl(i, param.type.type); 
                 controlLabels.set(control, param.name);
             }

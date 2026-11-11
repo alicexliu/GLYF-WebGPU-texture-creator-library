@@ -56,6 +56,7 @@ html, body {
     border-color: #a64c4c;
 }
 
+#importGlyfButton,
 #exportGlyfButton {
     padding: 8px 12px;
     border: 1px solid #666;
@@ -65,6 +66,7 @@ html, body {
     cursor: pointer;
 }
 
+#importGlyfButton:hover,
 #exportGlyfButton:hover {
     background: #444;
 }

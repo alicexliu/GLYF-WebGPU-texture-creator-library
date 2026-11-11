@@ -6,6 +6,7 @@ import { ReactPlugin, Presets, ReactArea2D } from "rete-react-plugin";
 import { ConnectionPlugin, Presets as ConnectionPresets } from "rete-connection-plugin"
 import { AreaExtensions } from "rete-area-plugin";
 import { serializeGlyf } from "../library/converter/glyf_converter";
+import { parseGlyf } from "../library/parser/glyf_parser";
 
 // custom nodes 
 import { getControlLabel, graphEditNode } from "./graph_edit_node";
@@ -24,7 +25,7 @@ import { nodeDefinitions } from "../definitions";
     graphEditNode, ClassicPreset.Connection<graphEditNode, graphEditNode>
     >;
 
-export async function createEditor(container: HTMLElement, onGraphChange: (g: Graph) => void) {
+export async function createEditor(container: HTMLElement, onGraphChange: (g: Graph) => void | Promise<unknown>) {
     const editor = new NodeEditor<Schemes>();
     // extra area ---------------
     type AreaExtra = ReactArea2D<Schemes> | ContextMenuExtra;
@@ -70,8 +71,9 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
 
     // notifiers --------
     // edits with nodes/connections
+    let importingGraph = false;
     editor.addPipe(ctx => {
-        if (["nodecreated", "noderemoved", "connectioncreated", "connectionremoved"].includes(ctx.type)) {
+        if (!importingGraph && ["nodecreated", "noderemoved", "connectioncreated", "connectionremoved"].includes(ctx.type)) {
             console.log(ctx.type); // todo
             onGraphChange(Rete2Graph(editor));
             
@@ -105,9 +107,11 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     AreaExtensions.zoomAt(area, editor.getNodes()); 
 
     const exportButton = document.getElementById("exportGlyfButton") as HTMLButtonElement;
+    const importButton = document.getElementById("importGlyfButton") as HTMLButtonElement;
+    const importInput = document.getElementById("importGlyfInput") as HTMLInputElement;
     const exportStatus = document.getElementById("exportStatus")!;
     let exportToastTimeout: number | undefined;
-    const showExportToast = (message: string, isError = false) => {
+    const showToast = (message: string, isError = false) => {
         window.clearTimeout(exportToastTimeout);
         exportStatus.textContent = message;
         exportStatus.classList.toggle("error", isError);
@@ -116,6 +120,78 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
             exportStatus.classList.remove("visible");
         }, 2500);
     };
+
+    importButton.addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", async () => {
+        const file = importInput.files?.[0];
+        if (!file) return;
+
+        try {
+            const graph = parseGlyf(await file.arrayBuffer(), true);
+            const importedNodes = new Map<number, graphEditNode>();
+
+            for (const graphNode of graph.nodes) {
+                if (importedNodes.has(graphNode.id)) {
+                    throw new Error(`Duplicate node ID: ${graphNode.id}`);
+                }
+                importedNodes.set(
+                    graphNode.id,
+                    new graphEditNode(graphNode.typeId, graphNode.id, graphNode.parameters)
+                );
+            }
+
+            const importedConnections: ClassicPreset.Connection<graphEditNode, graphEditNode>[] = [];
+            for (const graphNode of graph.nodes) {
+                const target = importedNodes.get(graphNode.id)!;
+                const targetDefinition = nodeDefinitions[graphNode.typeId];
+                for (const connection of graphNode.connections) {
+                    const source = importedNodes.get(connection.upstreamNodeId);
+                    const sourceDefinition = source && nodeDefinitions[source.typeId];
+                    const input = targetDefinition.parameters[connection.inputSocket];
+                    const output = sourceDefinition?.outputs[connection.upstreamSocket];
+
+                    if (!source || !input || !output) {
+                        throw new Error(`Invalid connection in node ${graphNode.id}`);
+                    }
+                    importedConnections.push(
+                        new ClassicPreset.Connection(source, output.name, target, input.name)
+                    );
+                }
+            }
+
+            importingGraph = true;
+            await editor.clear();
+            for (const node of importedNodes.values()) {
+                await editor.addNode(node);
+            }
+            for (const connection of importedConnections) {
+                await editor.addConnection(connection);
+            }
+
+            if (graph.editorInfo?.nodePositions.size) {
+                for (const [id, position] of graph.editorInfo.nodePositions) {
+                    if (importedNodes.has(id)) {
+                        await area.translate(String(id), { x: position[0], y: position[1] });
+                    }
+                }
+            } else {
+                AreaExtensions.zoomAt(area, editor.getNodes());
+            }
+            importingGraph = false;
+
+            const graphUpdated = await onGraphChange(Rete2Graph(editor));
+            if (graphUpdated === false) {
+                throw new Error("The imported graph could not be rendered.");
+            }
+            showToast(`Loaded ${file.name}`);
+        } catch (error) {
+            importingGraph = false;
+            console.error("Failed to import GLYF graph:", error);
+            showToast("Import failed; see console", true);
+        } finally {
+            importInput.value = "";
+        }
+    });
 
     exportButton.addEventListener("click", () => {
         try {
@@ -137,10 +213,10 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
             link.download = filename;
             link.click();
             URL.revokeObjectURL(url);
-            showExportToast(`Downloaded ${filename}`);
+            showToast(`Downloaded ${filename}`);
         } catch (error) {
             console.error("Failed to export GLYF graph:", error);
-            showExportToast("Export failed; see console", true);
+            showToast("Export failed; see console", true);
         }
     });
     
