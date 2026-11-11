@@ -10,14 +10,14 @@ import { Stage } from './stage/stage';
 import { createEditor, Rete2Graph } from './node_editor/editor';
 import { Graph } from './library/graph_types';
 import { NodeType } from './definitions';
-import { GraphExecution } from './library/parser/graph_execution';
+import { GPUGraphExecution } from './library/parser/gpu_graph_execution';
 import { setupResizableLayout } from './layout';
 
-let execution: GraphExecution;
+let execution: GPUGraphExecution;
 
 async function updateGraph(graph: Graph): Promise<boolean> {
     try {
-        const newExecution = await GraphExecution.create(device, graph);
+        const newExecution = await GPUGraphExecution.create(device, graph);
         const old = execution;
         execution = newExecution;
         setRenderer();
@@ -37,7 +37,6 @@ await initWebGPU();
 let ready = false
 const editor = await createEditor(document.getElementById("rete")!, g => ready ? updateGraph(g) : undefined);
 ready = true;
-await updateGraph(Rete2Graph(editor));
 
 // todo
 // pass graph to the Graph -> Texture func
@@ -79,4 +78,4 @@ const renderModes = { defTex: 'default texture'};
 let renderModeController = gui.add({ mode: renderModes.defTex }, 'mode', renderModes);
 renderModeController.onChange(setRenderer);
 
-setRenderer();
+await updateGraph(Rete2Graph(editor));
