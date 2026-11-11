@@ -12,11 +12,61 @@ html, body {
 }
 
 #rete {
+    position: relative;
     flex: 3 1 0;
     min-width: 140px;
     height: 100%;
     background: #1e1e1e;
     overflow: hidden;
+}
+
+.rete-export {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#exportStatus {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    z-index: 20;
+    padding: 10px 16px;
+    border: 1px solid #568a62;
+    border-radius: 6px;
+    background: #252525;
+    color: #eee;
+    font: inherit;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -8px);
+    transition: opacity 250ms ease, transform 250ms ease;
+}
+
+#exportStatus.visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+#exportStatus.error {
+    border-color: #a64c4c;
+}
+
+#exportGlyfButton {
+    padding: 8px 12px;
+    border: 1px solid #666;
+    border-radius: 4px;
+    background: #333;
+    color: #fff;
+    cursor: pointer;
+}
+
+#exportGlyfButton:hover {
+    background: #444;
 }
 
 #mainWorkspace {
