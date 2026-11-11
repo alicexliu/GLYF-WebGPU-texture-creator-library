@@ -54,6 +54,7 @@ export class graphEditNode extends ClassicPreset.Node {
             // socket -> use 
             if (param.socket) {
                 const input = new ClassicPreset.Input(getSocket(param.type.type), param.name);
+                // param name is the socket key!
                 this.addInput(param.name, input);
 
                 if (control) {

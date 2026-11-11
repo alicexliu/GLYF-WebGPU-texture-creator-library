@@ -14,7 +14,9 @@ import { GraphExecution } from './library/parser/graph_execution';
 
 // get the GPU adapter + device
 await initWebGPU();
-await createEditor(document.getElementById("rete")!);
+await createEditor(document.getElementById("rete")!, g => console.log(g)); 
+// todo
+// pass graph to the Graph -> Texture func
 
 // loader for gltf / image
 setupLoaders();
