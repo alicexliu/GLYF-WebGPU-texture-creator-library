@@ -1,6 +1,7 @@
 import { NodeEditor, GetSchemes, ClassicPreset } from "rete";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
+import { css } from "styled-components";
 import { AreaPlugin } from "rete-area-plugin";
 import { ReactPlugin, Presets, ReactArea2D } from "rete-react-plugin";
 import { ConnectionPlugin, Presets as ConnectionPresets } from "rete-connection-plugin"
@@ -36,6 +37,21 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
 
     render.addPreset(Presets.classic.setup({
         customize: {
+            node: ({ payload }) => ({ data, emit }) => createElement(
+                Presets.classic.Node,
+                {
+                    data,
+                    emit,
+                    styles: () => payload.selected ? css`
+                        & .title,
+                        & .input-title,
+                        & .output-title,
+                        & .rete-parameter-label {
+                            color: black;
+                        }
+                    ` : undefined,
+                }
+            ),
             control: ({ payload }) => {
                 const label = getControlLabel(payload);
                 if (!label || !(payload instanceof ClassicPreset.InputControl)) return null;
