@@ -2,6 +2,7 @@ import { nodeDefinitions, NodeType } from "../../definitions";
 import { Graph, GraphValue } from "../graph_types";
 import { buildNodeShader, packParams } from "../node_shader_builder";
 import { getInputs, getValues, nodeWGSL, topoSort } from "./graph_parser";
+import { inputBinding, PARAMS_BINDING, OUTPUT_BINDING, timeBinding } from "../bindings";
 
 export class GraphExecution {
     readonly outputs = new Map<string, GPUTexture>();
@@ -9,6 +10,13 @@ export class GraphExecution {
     private readonly pipelines = new Map<NodeType, GPUComputePipeline>();
     private readonly buffers: GPUBuffer[] = [];
     private readonly default: GPUTexture;
+    private readonly timeBuffer: GPUBuffer;
+
+    private readonly nodeRecords = new Map<number,
+                      {pipeline: GPUComputePipeline, bindGroup: GPUBindGroup, paramsBuffer: GPUBuffer}>();
+
+    private readonly animatedNodes = new Set<number>();
+    
 
     private constructor(
         private readonly device: GPUDevice,
@@ -16,6 +24,11 @@ export class GraphExecution {
         private readonly height: number
     ) {
         this.default = this.createTexture(width, height);
+        this.timeBuffer = this.device.createBuffer({
+            size: 4,//f32
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        this.buffers.push(this.timeBuffer);
     }
 
     // Takes in a Graph and executes it on GPU
@@ -51,6 +64,10 @@ export class GraphExecution {
             }
     }
 
+    setTime(seconds: number) {
+        this.device.queue.writeBuffer(this.timeBuffer, 0, new Float32Array([seconds]));
+    }
+
     destroy(): void {
         for (const texture of this.textures) {
             texture.destroy();
@@ -62,6 +79,8 @@ export class GraphExecution {
         this.buffers.length = 0;
         this.outputs.clear();
         this.pipelines.clear();
+        this.nodeRecords.clear();
+        this.animatedNodes.clear();
     }
 
     // Creates a new output texture on GPU
@@ -108,7 +127,8 @@ export class GraphExecution {
         type: NodeType,
         values: (GraphValue | undefined)[],
         inputs: Map<number, GPUTexture>,
-        encoder: GPUCommandEncoder
+        encoder: GPUCommandEncoder,
+        nodeID?: number // doesnt exist for output fallback 
     ) {
         const pipeline = await this.getPipeline(type);
         const def = nodeDefinitions[type];
@@ -117,31 +137,47 @@ export class GraphExecution {
         for (let i = 0; i < def.parameters.length; ++i) {
             connected.push(inputs.has(i));
         }
-
+    
         const data = packParams(def, values, connected);
         const buffer = this.device.createBuffer({
             size: data.byteLength,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
+        // params(0) and output tex(1)
         this.buffers.push(buffer);
         this.device.queue.writeBuffer(buffer, 0, data);
         const entries:GPUBindGroupEntry[] = [
-            {binding: 0, resource: {buffer}},
-            {binding: 1, resource: output.createView()}
+            {binding: PARAMS_BINDING, resource: {buffer}},
+            {binding: OUTPUT_BINDING, resource: output.createView()}
         ];
 
+        // input tex(2,3...)
+        let inputLength = 0;
         for (let i = 0; i < def.parameters.length; ++i) {
             if (def.parameters[i].socket) {
                 const input = inputs.get(i) ?? this.default;
-                entries.push({binding: 2 + i, resource: input.createView()});
+                entries.push({binding: inputBinding(i), resource: input.createView()});
+                inputLength++;
             }
         }
+
+        // time (last)
+        if (def.useUTime) {
+            // this.device.queue.writeBuffer(this.timeBuffer, 0, new Float32Array(0)); // temp
+            entries.push({binding: timeBinding(def), resource: {buffer: this.timeBuffer}});
+        }
+
 
         const bindGroup = this.device.createBindGroup({
             layout: pipeline.getBindGroupLayout(0),
             entries
         });
+
+        // store the node data 
+        if (nodeID !== undefined) {
+            this.nodeRecords.set(nodeID, {pipeline, bindGroup, paramsBuffer: buffer});
+        }
 
         const pass = encoder.beginComputePass();
         pass.setPipeline(pipeline);
@@ -185,8 +221,19 @@ export class GraphExecution {
                     node.typeId,
                     values,
                     inputs,
-                    encoder
+                    encoder, 
+                    node.id // to store in nodeRecords!
                 );
+
+                // add to animated nodes
+                const def = nodeDefinitions[node.typeId];
+                const isAnimated = def.useUTime ||
+                    node.connections.some(c => this.animatedNodes.has(c.upstreamNodeId));
+                if (isAnimated) {
+                    this.animatedNodes.add(node.id);
+                }
+                    
+                
 
                 if (!texture) {
                     throw new Error(`Error creating texture`);
@@ -198,5 +245,27 @@ export class GraphExecution {
 
         this.device.queue.submit([encoder.finish()]);
         await this.device.queue.onSubmittedWorkDone();
+    }
+
+
+    updateTime(
+        encoder: GPUCommandEncoder,
+        time: number,
+    ) {
+        if (this.animatedNodes.size === 0) return;
+        // write time to buffer
+        this.setTime(time);
+
+        const pass = encoder.beginComputePass();
+
+        for (const nodeId of this.animatedNodes) {
+            const n = this.nodeRecords.get(nodeId)!;
+            pass.setPipeline(n.pipeline);
+            pass.setBindGroup(0, n.bindGroup);
+            pass.dispatchWorkgroups(Math.ceil(this.width / 8), Math.ceil(this.height / 8));
+            
+        }
+
+        pass.end();
     }
 }

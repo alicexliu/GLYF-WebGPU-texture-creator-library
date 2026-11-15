@@ -11,9 +11,12 @@ import blendWGSL from "../node_shaders/combine/blend.cs.wgsl?raw";
 import perlinWGSL from "../node_shaders/generate/perlin.cs.wgsl?raw";
 import worleyWGSL from "../node_shaders/generate/worley.cs.wgsl?raw";
 import fbmWGSL from "../node_shaders/generate/fbm.cs.wgsl?raw";
+import timeWGSL from "../node_shaders/generate/time.cs.wgsl?raw";
+import uvTransformWGSL from "../node_shaders/combine/uv_transform.cs.wgsl?raw";
 import { nodeDefinitions, NodeType } from "../../definitions";
 
 export const nodeWGSL = {
+    [NodeType.Time]: {name: "time", source: timeWGSL},
     [NodeType.Color]: {name: "color", source: colorWGSL},
     [NodeType.Constant]: {name: "constant", source: constantWGSL},
     [NodeType.Add]: {name: "add", source: addWGSL},
@@ -24,6 +27,7 @@ export const nodeWGSL = {
     [NodeType.PerlinNoise]: {name: "perlin", source: perlinWGSL},
     [NodeType.WorleyNoise]: {name: "worley", source: worleyWGSL},
     [NodeType.FbmNoise]: {name: "fbm", source: fbmWGSL},
+    [NodeType.UVTransform]: {name: "uv_transform", source: uvTransformWGSL},
 };
 
 // dfs node visit helper for tarjan's

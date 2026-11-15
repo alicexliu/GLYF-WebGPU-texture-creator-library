@@ -3,6 +3,7 @@
     import { Stage } from '../stage/stage';
 
 
+    import { GraphExecution } from '../library/parser/graph_execution';
     import { buildNodeShader, packParams } from '../library/node_shader_builder';
     import { nodeDefinitions, NodeType } from '../definitions';
     // temp
@@ -23,10 +24,12 @@
         renderPipeline: GPURenderPipeline;
 
         sampler: GPUSampler;
+        execution: GraphExecution;
 
 
-        constructor(stage: Stage, texture: GPUTexture) {
+        constructor(stage: Stage, texture: GPUTexture, execution: GraphExecution) {
             super(stage);
+            this.execution = execution;
 
             // this.outputTexture = renderer.device.createTexture({
             //     size: [512, 512],
@@ -153,16 +156,9 @@
         override draw() {
             const canvasTextureView = renderer.context.getCurrentTexture().createView();
             const encoder = renderer.device.createCommandEncoder();
-            
-            // compute pass 
-            // const computePass = encoder.beginComputePass({
-            //     label: "texture compute pass"
-            // });
-            // computePass.setPipeline(this.textureComputePipeline);
-            // computePass.setBindGroup(0, this.texComputeBindGroup);
-            // computePass.dispatchWorkgroups(512 / 8, 512 / 8);
-            
-            // computePass.end();
+
+            // compute animated textures 
+            this.execution.updateTime(encoder, performance.now() / 1000);
         
             // render pass
             const renderPass = encoder.beginRenderPass({
