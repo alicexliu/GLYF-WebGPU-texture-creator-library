@@ -34,12 +34,10 @@ async function updateGraph(graph: Graph): Promise<boolean> {
 setupResizableLayout();
 await initWebGPU();
 
+// node graph setup
 let ready = false
 const editor = await createEditor(document.getElementById("rete")!, g => ready ? updateGraph(g) : undefined);
 ready = true;
-
-// todo
-// pass graph to the Graph -> Texture func
 
 // loader for gltf / image
 setupLoaders();
@@ -67,7 +65,7 @@ function setRenderer() {
         throw new Error("Missing albedo output from graph execution");
     }
 
-    renderer = new TextureRenderer(stage, texture);
+    renderer = new TextureRenderer(stage, texture, execution);
     // switch (mode) {
         // todo: more options for preview, 
         // like texture on object

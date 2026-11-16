@@ -1,6 +1,7 @@
 // DATA TYPES
 
 import { GraphValue } from "./library/graph_types";
+import { asFloat, toVec4CPU } from "./library/node_shader_builder"
 
 // TODO: add more as needed
 export const dataTypes = {
@@ -38,17 +39,18 @@ export const dataTypes = {
 // TODO: add more as needed
 export enum NodeType {
     Output = 0,
-    Color = 1,
-    Constant = 2,
-    Add = 3,
-    Invert = 4,
-    Subtract = 5,
-    Multiply = 6,
-    PerlinNoise = 7,
-    WorleyNoise = 8,
-    FbmNoise = 9,
-    UVTransform = 10,
-    Blend = 11,
+    Time = 1,
+    Color = 2,
+    Constant = 3,
+    Add = 4,
+    Invert = 5,
+    Subtract = 6,
+    Multiply = 7,
+    PerlinNoise = 8,
+    WorleyNoise = 9,
+    FbmNoise = 10,
+    UVTransform = 11,
+    Blend = 12,
 }
 
 export interface NodeDefinition {
@@ -56,13 +58,11 @@ export interface NodeDefinition {
     name: string;
     parameters: Array<{ name: string; type: { size: number; type: string; }; socket?: boolean; default?: GraphValue; }>;
     outputs: Array<{ name: string; type: { size: number; type: string; } }>;
+    useUTime?: boolean; // uses time that is from Uniform(precise), rather than from socket input(f16)
+    evaluateUniform?: (args: GraphValue[], time: number) => GraphValue;
 }
 
-// NODE DEFINITIONS
-// TODO: add more as needed 
-// NOTE: i changed Color and constant to hold value in 
-// added parameters too and changed inputs inputs bc they belong to the node rather 
-// than being required to be input from another node, but should be able to feed in 
+// NODE DEFINITIONS 
 
 // PARAMETERS:
 // socket: true -> can have node input socket / false -> can only be set manually
@@ -72,6 +72,9 @@ export interface NodeDefinition {
 // socket only -> input node required
 // default only -> can only be set manually
 // neither -> not allowed
+
+// useUTime flag should be on if you want to use input uniform directly for precision
+// if name == 'uv' then fallback would be the built-in uv coordinates (must still define def, but will be ignored)
 export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
     [NodeType.Output]: {
         typeId: NodeType.Output,
@@ -82,6 +85,17 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         outputs: []
     },
+    [NodeType.Time]: {
+        typeId: NodeType.Time,
+        name: "Time",
+        parameters: [],
+        outputs: [
+            { name: "value", type: dataTypes.FLOAT32 }
+        ],
+        useUTime: true,
+        evaluateUniform: (_, time) => time,
+        
+    },
     [NodeType.Color]: {
         typeId: NodeType.Color,
         name: "Color",
@@ -90,7 +104,8 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         outputs: [
             { name: "value", type: dataTypes.VEC4 }
-        ]
+        ],
+        evaluateUniform: ([val]) => toVec4CPU(val),
     },
     [NodeType.Constant]: {
         typeId: NodeType.Constant,
@@ -100,7 +115,8 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         outputs: [
             { name: "value", type: dataTypes.FLOAT32 }
-        ]
+        ],
+        evaluateUniform: ([val]) => asFloat(val),
     },
     [NodeType.Add]: {
         typeId: NodeType.Add,
@@ -111,7 +127,8 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         outputs: [
             { name: "value", type: dataTypes.FLOAT32 }
-        ]
+        ],
+        evaluateUniform: ([a, b]) => asFloat(a) + asFloat(b),
     },
     [NodeType.Subtract]: {
         typeId: NodeType.Subtract,
@@ -122,7 +139,8 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         outputs: [
             { name: "value", type: dataTypes.FLOAT32 }
-        ]
+        ],
+        evaluateUniform: ([a, b]) => asFloat(a) - asFloat(b),
     },
     [NodeType.Multiply]: {
         typeId: NodeType.Multiply,
@@ -133,7 +151,8 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         outputs: [
             { name: "value", type: dataTypes.FLOAT32 }
-        ]
+        ],
+        evaluateUniform: ([a, b]) => asFloat(a) * asFloat(b),
     },
     [NodeType.Invert]: {
         typeId: NodeType.Invert,
@@ -143,7 +162,11 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         outputs: [
             { name: "value", type: dataTypes.VEC4 }
-        ]
+        ],
+        evaluateUniform: ([val]) => {
+            const c = toVec4CPU(val);
+            return [1.0 - c[0], 1.0 - c[1], 1.0 - c[2], c[3]];
+        },
     },
     [NodeType.PerlinNoise]: {
         typeId: NodeType.PerlinNoise,
@@ -186,7 +209,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         typeId: NodeType.UVTransform,
         name: "UV Transform",
         parameters: [
-            { name: "uv", type: dataTypes.VEC2, socket: true },
+            { name: "uv", type: dataTypes.VEC2, socket: true, default: [0,0] },
             { name: "scale", type: dataTypes.VEC2, socket: true, default: [1.0, 1.0] },
             { name: "rotation", type: dataTypes.FLOAT32, socket: true, default: 0.0 },
             { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] }
@@ -205,6 +228,12 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         outputs: [
             { name: "value", type: dataTypes.VEC4 }
-        ]
+        ],
+        evaluateUniform: ([a, b, factor]) => {
+            const va = toVec4CPU(a);
+            const vb = toVec4CPU(b);
+            const f = asFloat(factor);
+            return va.map((v, i) => v * (1.0 - f) + vb[i] * f);
+        },
     }
 };

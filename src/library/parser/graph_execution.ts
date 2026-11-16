@@ -1,7 +1,8 @@
 import { nodeDefinitions, NodeType } from "../../definitions";
-import { Graph, GraphValue } from "../graph_types";
-import { buildNodeShader, packParams } from "../node_shader_builder";
-import { getInputs, getValues, nodeWGSL, topoSort } from "./graph_parser";
+import { Graph, GraphValue, GraphNode } from "../graph_types";
+import { buildNodeShader, packParams, toVec4CPU } from "../node_shader_builder";
+import { evaluateUniformNode, getInputs, getValues, nodeWGSL, topoSort } from "./graph_parser";
+import { inputBinding, PARAMS_BINDING, OUTPUT_BINDING, timeBinding } from "../bindings";
 
 export class GraphExecution {
     readonly outputs = new Map<string, GPUTexture>();
@@ -9,6 +10,21 @@ export class GraphExecution {
     private readonly pipelines = new Map<NodeType, GPUComputePipeline>();
     private readonly buffers: GPUBuffer[] = [];
     private readonly default: GPUTexture;
+    private readonly timeBuffer: GPUBuffer;
+
+    private readonly nodeRecords = new Map<number,
+                      {pipeline: GPUComputePipeline, bindGroup: GPUBindGroup, paramsBuffer: GPUBuffer}>();
+
+    private readonly animatedNodes = new Set<number>();
+
+    private readonly uniformNodes = new Map<number, GraphValue>();
+    private readonly animatedUniformNodes: GraphNode[] = []; // topologically ordered
+    private readonly animatedUniformBindings: Array<{
+        targetNodeId: number;
+        socketIndex: number;
+        upstreamNodeId: number;
+    }> = [];
+    
 
     private constructor(
         private readonly device: GPUDevice,
@@ -16,6 +32,11 @@ export class GraphExecution {
         private readonly height: number
     ) {
         this.default = this.createTexture(width, height);
+        this.timeBuffer = this.device.createBuffer({
+            size: 4,//f32
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        this.buffers.push(this.timeBuffer);
     }
 
     // Takes in a Graph and executes it on GPU
@@ -51,6 +72,10 @@ export class GraphExecution {
             }
     }
 
+    setTime(seconds: number) {
+        this.device.queue.writeBuffer(this.timeBuffer, 0, new Float32Array([seconds]));
+    }
+
     destroy(): void {
         for (const texture of this.textures) {
             texture.destroy();
@@ -62,6 +87,11 @@ export class GraphExecution {
         this.buffers.length = 0;
         this.outputs.clear();
         this.pipelines.clear();
+        this.nodeRecords.clear();
+        this.animatedNodes.clear();
+        this.uniformNodes.clear();
+        this.animatedUniformNodes.length = 0;
+        this.animatedUniformBindings.length = 0;
     }
 
     // Creates a new output texture on GPU
@@ -108,7 +138,8 @@ export class GraphExecution {
         type: NodeType,
         values: (GraphValue | undefined)[],
         inputs: Map<number, GPUTexture>,
-        encoder: GPUCommandEncoder
+        encoder: GPUCommandEncoder,
+        nodeID?: number // doesnt exist for output fallback 
     ) {
         const pipeline = await this.getPipeline(type);
         const def = nodeDefinitions[type];
@@ -117,31 +148,44 @@ export class GraphExecution {
         for (let i = 0; i < def.parameters.length; ++i) {
             connected.push(inputs.has(i));
         }
-
+    
         const data = packParams(def, values, connected);
         const buffer = this.device.createBuffer({
             size: data.byteLength,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
+        // params(0) and output tex(1)
         this.buffers.push(buffer);
         this.device.queue.writeBuffer(buffer, 0, data);
         const entries:GPUBindGroupEntry[] = [
-            {binding: 0, resource: {buffer}},
-            {binding: 1, resource: output.createView()}
+            {binding: PARAMS_BINDING, resource: {buffer}},
+            {binding: OUTPUT_BINDING, resource: output.createView()}
         ];
 
+        // input tex(2,3...)
         for (let i = 0; i < def.parameters.length; ++i) {
             if (def.parameters[i].socket) {
                 const input = inputs.get(i) ?? this.default;
-                entries.push({binding: 2 + i, resource: input.createView()});
+                entries.push({binding: inputBinding(i), resource: input.createView()});
             }
+        }
+
+        // time (last)
+        if (def.useUTime) {
+            // this.device.queue.writeBuffer(this.timeBuffer, 0, new Float32Array(0)); // temp
+            entries.push({binding: timeBinding(def), resource: {buffer: this.timeBuffer}});
         }
 
         const bindGroup = this.device.createBindGroup({
             layout: pipeline.getBindGroupLayout(0),
             entries
         });
+
+        // store the node data 
+        if (nodeID !== undefined) {
+            this.nodeRecords.set(nodeID, {pipeline, bindGroup, paramsBuffer: buffer});
+        }
 
         const pass = encoder.beginComputePass();
         pass.setPipeline(pipeline);
@@ -164,39 +208,132 @@ export class GraphExecution {
         const textures = new Map<number, GPUTexture>();
         const nDefn = nodeDefinitions[NodeType.Output];
         for (const node of ordered) {
-            const inputs = getInputs(node, textures);
-            const values = getValues(node, inputs);
             if (node.typeId == NodeType.Output) {
+                const inputs = getInputs(node, textures, this.uniformNodes);
+                const values = getValues(node, inputs, this.uniformNodes);
                 for (let i = 0; i < nDefn.parameters.length; ++i) {
                     let texture = inputs.get(i);
                     if (!texture) {
+                        const syntheticId = -(i + 1);
+                        const conn = node.connections.find(c => c.inputSocket === i);
+                        const isOutputAnimated = conn !== undefined &&
+                            this.animatedUniformNodes.some(u => u.id === conn.upstreamNodeId);
+
                         // setting as default so unconnected output doesnt crash
                         texture = await this.encodeNode(
                             NodeType.Color,
                             [values[i]],
                             new Map<number, GPUTexture>(),
-                            encoder
+                            encoder,
+                            isOutputAnimated ? syntheticId : undefined
                         );
+
+                        if (isOutputAnimated && conn) {
+                            this.animatedUniformBindings.push({
+                                targetNodeId: syntheticId,
+                                socketIndex: 0,
+                                upstreamNodeId: conn.upstreamNodeId,
+                            });
+                            this.animatedNodes.add(syntheticId);
+                        }
                     }
                     this.outputs.set(nDefn.parameters[i].name, texture);
                 }
-            } else {
-                const texture = await this.encodeNode(
-                    node.typeId,
-                    values,
-                    inputs,
-                    encoder
-                );
-
-                if (!texture) {
-                    throw new Error(`Error creating texture`);
-                }
-
-                textures.set(node.id, texture);
+                continue;
             }
+            const def = nodeDefinitions[node.typeId];
+
+            // a node if uniform if:
+            // 1. for its node type, canBeUniform === true
+            // 2. every connected upstream node is in uniformNodes
+            const isUniform = Boolean(def.evaluateUniform) &&
+                node.connections.every(c => this.uniformNodes.has(c.upstreamNodeId));
+
+            const isAnimated = def.useUTime ||
+                node.connections.some(c => this.animatedNodes.has(c.upstreamNodeId) ||
+                this.animatedUniformNodes.some(u => u.id === c.upstreamNodeId)
+            );
+
+            if (isUniform) {
+                const val = evaluateUniformNode(node, this.uniformNodes, 0);
+                this.uniformNodes.set(node.id, val);
+                if (isAnimated) {
+                    this.animatedUniformNodes.push(node);
+                }
+                continue;
+            }
+            
+            // GPU texture nodes
+            const inputs = getInputs(node, textures, this.uniformNodes);
+            const values = getValues(node, inputs, this.uniformNodes);
+
+            const texture = await this.encodeNode(
+                node.typeId,
+                values,
+                inputs,
+                encoder, 
+                node.id // to store in nodeRecords!
+            );
+
+            for (const conn of node.connections) {
+                if (this.animatedUniformNodes.some(u => u.id === conn.upstreamNodeId)) {
+                    this.animatedUniformBindings.push({
+                        targetNodeId: node.id,
+                        socketIndex: conn.inputSocket,
+                        upstreamNodeId: conn.upstreamNodeId,
+                    });
+                }
+            }
+
+            // add to animated nodes
+            if (isAnimated) {
+                this.animatedNodes.add(node.id);
+            }
+                
+            if (!texture) {
+                throw new Error(`Error creating texture`);
+            }
+
+            textures.set(node.id, texture);
         }
 
         this.device.queue.submit([encoder.finish()]);
         await this.device.queue.onSubmittedWorkDone();
+    }
+
+
+    updateTime(
+        encoder: GPUCommandEncoder,
+        time: number,
+    ) {
+        if (this.animatedNodes.size === 0 && this.animatedUniformNodes.length === 0) return;
+
+        // write time to buffer
+        this.setTime(time);
+
+        // re eval animated uniform nodes on CPU + give to GPU
+        for (const uNode of this.animatedUniformNodes) {
+            const val = evaluateUniformNode(uNode, this.uniformNodes, time);
+            this.uniformNodes.set(uNode.id, val);
+        }
+
+        for (const binding of this.animatedUniformBindings) {
+            const record = this.nodeRecords.get(binding.targetNodeId)!;
+            const val = this.uniformNodes.get(binding.upstreamNodeId)!;
+            const packedVec4 = new Float32Array(toVec4CPU(val));
+            this.device.queue.writeBuffer(record.paramsBuffer, binding.socketIndex * 16, packedVec4);
+        }
+
+        if (this.animatedNodes.size > 0) {
+            const pass = encoder.beginComputePass();
+            for (const nodeId of this.animatedNodes) {
+                const n = this.nodeRecords.get(nodeId)!;
+                pass.setPipeline(n.pipeline);
+                pass.setBindGroup(0, n.bindGroup);
+                pass.dispatchWorkgroups(Math.ceil(this.width / 8), Math.ceil(this.height / 8));
+                
+            }
+            pass.end();
+        }
     }
 }

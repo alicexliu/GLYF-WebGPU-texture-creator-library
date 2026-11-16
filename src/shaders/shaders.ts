@@ -1,7 +1,7 @@
 import commonRaw from './common.wgsl?raw';
 
 import fullscreenVertRaw from './fullscreen.vs.wgsl?raw';
-import noiseComputeRaw from './noise.cs.wgsl?raw';
+// import noiseComputeRaw from './noise.cs.wgsl?raw';
 import displayFragRaw from './display.fs.wgsl?raw';
 
 
@@ -44,5 +44,5 @@ function processShaderRaw(raw: string) {
 
 export const fullscreenVertSrc: string = processShaderRaw(fullscreenVertRaw);
 
-export const noiseComputeSrc: string = processShaderRaw(noiseComputeRaw);
+// export const noiseComputeSrc: string = processShaderRaw(noiseComputeRaw);
 export const displayFragSrc: string = processShaderRaw(displayFragRaw);

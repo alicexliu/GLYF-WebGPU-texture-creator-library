@@ -1,4 +1,5 @@
 import type { NodeDefinition } from "../definitions";
+import { inputBinding, PARAMS_BINDING, OUTPUT_BINDING, timeBinding } from "./bindings";
 import type { GraphValue } from "./graph_types";
 
 const wgslType: Record<string, string> = {
@@ -24,7 +25,9 @@ const toVec4: Record<string, (v: string) => string> = {
     vec4:    v => v,
 };
 
-function toVec4CPU(v: GraphValue): number[] {
+export const asFloat = (v: GraphValue): number => Array.isArray(v) ? v[0] : v;
+
+export function toVec4CPU(v: GraphValue): number[] {
     if (typeof v === "number") return [v, v, v, 1];
     if (v.length === 2) return [v[0], v[1], 0, 1];
     if (v.length === 3) return [v[0], v[1], v[2], 1];
@@ -48,12 +51,13 @@ export function buildNodeShader(def: NodeDefinition, nodeWGSL: string) {
         // socket 
         if (param.socket) {
             // @group(0) @binding(2+#i) var in#i: texture_2d<f32>;
-            bindings.push(`@group(0) @binding(${2 + i}) var in${i}: texture_2d<f32>;`);
+            bindings.push(`@group(0) @binding(${inputBinding(i)}) var in${i}: texture_2d<f32>;`);
 
             const fallbackForUV = param.name == "uv" && type == "vec2" ? "vec4f(uv, 0.0, 1.0)" : `params.values[${i}]`;
             // select socket tex or param, depending on connection 
             reads.push(`let raw${i} = select(${fallbackForUV}, textureLoad(in${i}, pixel, 0), params.connected[${i}].x > 0.5);`);
         }
+
         // param/default
         else {
             reads.push(`let raw${i} = params.values[${i}];`);
@@ -64,6 +68,11 @@ export function buildNodeShader(def: NodeDefinition, nodeWGSL: string) {
         args.push(`arg${i}`);
     }
 
+    // time uniform 
+        if (def.useUTime) {
+            bindings.push(`@group(0) @binding(${timeBinding(def)}) var<uniform> uTime: f32;`);
+        }
+
     const wgslText = 
         `
         struct Params {
@@ -71,8 +80,8 @@ export function buildNodeShader(def: NodeDefinition, nodeWGSL: string) {
             connected: array<vec4f, ${paramN}>,   // .x = 1 if that parameter has a wire
         };
 
-        @group(0) @binding(0) var<uniform> params: Params;
-        @group(0) @binding(1) var outTex: texture_storage_2d<rgba16float, write>;
+        @group(0) @binding(${PARAMS_BINDING}) var<uniform> params: Params;
+        @group(0) @binding(${OUTPUT_BINDING}) var outTex: texture_storage_2d<rgba16float, write>;
         ${bindings.join("\n        ")}
             
         // wgsl function 
