@@ -1,5 +1,6 @@
 import { NodeEditor, GetSchemes, ClassicPreset } from "rete";
-import { createElement } from "react";
+import { createElement, useRef, useState } from "react";
+import type { HTMLProps, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { css } from "styled-components";
 import { AreaPlugin } from "rete-area-plugin";
@@ -19,6 +20,101 @@ import type { Graph, GraphNode, GraphConnection } from "../library/graph_types";
 import { ContextMenuPlugin, ContextMenuExtra, Presets as ContextMenuPresets } from "rete-context-menu-plugin";
 import { nodeDefinitions } from "../definitions";
 
+interface ContextMenuItem {
+    label: string;
+    key: string;
+    handler(): void;
+    subitems?: ContextMenuItem[];
+}
+
+function AutofocusContextMenuSearch(props: HTMLProps<HTMLInputElement>) {
+    return createElement(Presets.contextMenu.Search, { ...props, autoFocus: true });
+}
+
+function SearchableContextMenu(props: {
+    items: ContextMenuItem[];
+    onHide(): void;
+    searchBar?: boolean;
+}) {
+    const [query, setQuery] = useState("");
+    const [activeCategory, setActiveCategory] = useState<string>();
+    const hideTimeout = useRef<number | undefined>(undefined);
+    const search = query.trim().toLowerCase();
+    const categories = props.items
+        .map(category => {
+            const items = category.subitems ?? [];
+            const matchesCategory = search.length > 0 && category.label.toLowerCase().includes(search);
+            return {
+                ...category,
+                visibleItems: search && !matchesCategory
+                    ? items.filter(item => item.label.toLowerCase().includes(search))
+                    : items,
+            };
+        })
+        .filter(category => !search || category.visibleItems.length > 0);
+
+    const createNodeItem = (item: ContextMenuItem) => createElement(
+        Presets.contextMenu.Item,
+        {
+            key: item.key,
+            hasSubitems: false,
+            onPointerDown: (event: ReactPointerEvent) => event.stopPropagation(),
+            onClick: (event: ReactMouseEvent) => {
+                event.stopPropagation();
+                item.handler();
+                props.onHide();
+            },
+            "data-testid": "context-menu-item",
+        },
+        item.label
+    );
+
+    return createElement(
+        Presets.contextMenu.Menu,
+        {
+            "data-testid": "context-menu",
+            onMouseOver: () => window.clearTimeout(hideTimeout.current),
+            onMouseLeave: () => {
+                window.clearTimeout(hideTimeout.current);
+                hideTimeout.current = window.setTimeout(props.onHide, 100);
+            },
+            onWheel: (event: ReactWheelEvent) => event.stopPropagation(),
+        },
+        props.searchBar && createElement(
+            Presets.contextMenu.Common,
+            null,
+            createElement(AutofocusContextMenuSearch, {
+                value: query,
+                onChange: event => setQuery(event.currentTarget.value),
+                onPointerDown: event => event.stopPropagation(),
+            })
+        ),
+        categories.map(category => search
+            ? createElement(
+                "div",
+                { key: category.key },
+                category.visibleItems.map(createNodeItem)
+            )
+            : createElement(
+                Presets.contextMenu.Item,
+                {
+                    key: category.key,
+                    onPointerEnter: () => setActiveCategory(category.key),
+                    onPointerLeave: () => setActiveCategory(undefined),
+                    hasSubitems: Boolean(category.subitems?.length),
+                    onPointerDown: (event: ReactPointerEvent) => event.stopPropagation(),
+                },
+                category.label,
+                activeCategory === category.key && category.subitems?.length
+                    ? createElement(
+                        Presets.contextMenu.Subitems,
+                        null,
+                        category.subitems.map(createNodeItem)
+                    )
+                    : null
+            ))
+    );
+}
 
 // editor ---------
     type Schemes = GetSchemes<
@@ -94,15 +190,58 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     area.use(connection);
 
     // context menu ---------
-    const nodesList = Object.values(nodeDefinitions)
-    .filter(def => def.typeId !== NodeType.Output) // cant add Output
-    .map(def => [def.name, () => new graphEditNode(def.typeId)] as [string, () => graphEditNode]);
+    type NodeMenuItem = [string, () => graphEditNode];
+    type NodeMenuCategory = [string, NodeMenuItem[]];
+    const nodeMenuItem = (type: NodeType): NodeMenuItem => [
+        nodeDefinitions[type].name,
+        () => new graphEditNode(type)
+    ];
+    const nodesList: NodeMenuCategory[] = [
+        ["Generators", [
+            nodeMenuItem(NodeType.Time),
+            nodeMenuItem(NodeType.Color),
+            nodeMenuItem(NodeType.Constant),
+            nodeMenuItem(NodeType.PerlinNoise),
+            nodeMenuItem(NodeType.WorleyNoise),
+            nodeMenuItem(NodeType.FbmNoise),
+        ]],
+        ["Math", [
+            nodeMenuItem(NodeType.Add),
+            nodeMenuItem(NodeType.Subtract),
+            nodeMenuItem(NodeType.Multiply),
+            nodeMenuItem(NodeType.Power),
+            nodeMenuItem(NodeType.Step),
+            nodeMenuItem(NodeType.SinCos),
+            nodeMenuItem(NodeType.DotProduct),
+            nodeMenuItem(NodeType.Invert),
+            nodeMenuItem(NodeType.Blend),
+
+        ]],
+        ["Vectors", [
+            nodeMenuItem(NodeType.CombineVec2),
+            nodeMenuItem(NodeType.CombineVec3),
+            nodeMenuItem(NodeType.CombineVec4),
+            nodeMenuItem(NodeType.SplitVec4),
+        ]],
+        ["UV", [
+            nodeMenuItem(NodeType.UVTransform),
+        ]],
+    ];
 
     const contextMenu = new ContextMenuPlugin<Schemes>({
         items: ContextMenuPresets.classic.setup(nodesList)
     });
     area.use(contextMenu);
-    render.addPreset(Presets.contextMenu.setup()); 
+    render.addPreset({
+        render: context => {
+            if (context.data.type !== "contextmenu") return null;
+            return createElement(SearchableContextMenu, {
+                items: context.data.items,
+                onHide: context.data.onHide,
+                searchBar: context.data.searchBar,
+            });
+        },
+    });
 
     // notifiers --------
     // edits with nodes/connections

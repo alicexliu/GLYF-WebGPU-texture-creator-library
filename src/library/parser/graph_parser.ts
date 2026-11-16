@@ -20,6 +20,7 @@ import combineVec2WGSL from "../node_shaders/combine/combine_vec2.cs.wgsl?raw";
 import combineVec3WGSL from "../node_shaders/combine/combine_vec3.cs.wgsl?raw";
 import combineVec4WGSL from "../node_shaders/combine/combine_vec4.cs.wgsl?raw";
 import sinCosWGSL from "../node_shaders/combine/sin_cos.cs.wgsl?raw";
+import dotProductWGSL from "../node_shaders/combine/dot_product.cs.wgsl?raw";
 import { nodeDefinitions, NodeType } from "../../definitions";
 
 export const nodeWGSL = {
@@ -42,6 +43,7 @@ export const nodeWGSL = {
     [NodeType.CombineVec3]: {name: "combine_vec3", source: combineVec3WGSL},
     [NodeType.CombineVec4]: {name: "combine_vec4", source: combineVec4WGSL},
     [NodeType.SinCos]: {name: "sin_cos", source: sinCosWGSL},
+    [NodeType.DotProduct]: {name: "dot_product", source: dotProductWGSL},
 };
 
 // dfs node visit helper for tarjan's

@@ -59,6 +59,7 @@ export enum NodeType {
     CombineVec3 = 19,
     CombineVec4 = 20,
     SinCos = 21,
+    DotProduct = 22,
 }
 
 export interface NodeDefinition {
@@ -235,6 +236,25 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             const angle = asFloat(x) * asFloat(frequency);
             const wave = asFloat(mode) > 0 ? Math.cos(angle) : Math.sin(angle);
             return asFloat(amplitude) * wave + asFloat(offset);
+        },
+    },
+    [NodeType.DotProduct]: {
+        typeId: NodeType.DotProduct,
+        name: "Dot Product",
+        parameters: [
+            { name: "a", type: dataTypes.VEC4, socket: true },
+            { name: "b", type: dataTypes.VEC4, socket: true }
+        ],
+        outputs: [
+            { name: "out", type: dataTypes.FLOAT32 }
+        ],
+        evaluateUniform: ([a, b]) => {
+            const vectorA = toVec4CPU(a);
+            const vectorB = toVec4CPU(b);
+            return vectorA[0] * vectorB[0] +
+                vectorA[1] * vectorB[1] +
+                vectorA[2] * vectorB[2] +
+                vectorA[3] * vectorB[3];
         },
     },
     [NodeType.Multiply]: {
