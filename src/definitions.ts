@@ -90,7 +90,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         name: "Time",
         parameters: [],
         outputs: [
-            { name: "value", type: dataTypes.FLOAT32 }
+            { name: "out", type: dataTypes.FLOAT32 }
         ],
         useUTime: true,
         evaluateUniform: (_, time) => time,
@@ -100,10 +100,10 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         typeId: NodeType.Color,
         name: "Color",
         parameters: [
-            { name: "value", type: dataTypes.VEC4, default: [0.0, 0.0, 0.0, 1.0] },
+            { name: "color", type: dataTypes.VEC4, default: [0.0, 0.0, 0.0, 1.0] },
         ],
         outputs: [
-            { name: "value", type: dataTypes.VEC4 }
+            { name: "out", type: dataTypes.VEC4 }
         ],
         evaluateUniform: ([val]) => toVec4CPU(val),
     },
@@ -111,10 +111,10 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         typeId: NodeType.Constant,
         name: "Constant",
         parameters: [ 
-            { name: "value", type: dataTypes.FLOAT32, default: 0.0 }
+            { name: "constant", type: dataTypes.FLOAT32, default: 0.0 }
         ],
         outputs: [
-            { name: "value", type: dataTypes.FLOAT32 }
+            { name: "out", type: dataTypes.FLOAT32 }
         ],
         evaluateUniform: ([val]) => asFloat(val),
     },
@@ -126,7 +126,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "b", type: dataTypes.FLOAT32, socket: true, default: 0.0 }
         ],
         outputs: [
-            { name: "value", type: dataTypes.FLOAT32 }
+            { name: "out", type: dataTypes.FLOAT32 }
         ],
         evaluateUniform: ([a, b]) => asFloat(a) + asFloat(b),
     },
@@ -138,7 +138,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "b", type: dataTypes.FLOAT32, socket: true, default: 0.0 }
         ],
         outputs: [
-            { name: "value", type: dataTypes.FLOAT32 }
+            { name: "out", type: dataTypes.FLOAT32 }
         ],
         evaluateUniform: ([a, b]) => asFloat(a) - asFloat(b),
     },
@@ -150,7 +150,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "b", type: dataTypes.FLOAT32, socket: true, default: 0.0 }
         ],
         outputs: [
-            { name: "value", type: dataTypes.FLOAT32 }
+            { name: "out", type: dataTypes.FLOAT32 }
         ],
         evaluateUniform: ([a, b]) => asFloat(a) * asFloat(b),
     },
@@ -158,10 +158,10 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         typeId: NodeType.Invert,
         name: "Invert",
         parameters: [
-            { name: "value", type: dataTypes.VEC4, socket: true }
+            { name: "in", type: dataTypes.VEC4, socket: true }
         ],
         outputs: [
-            { name: "value", type: dataTypes.VEC4 }
+            { name: "out", type: dataTypes.VEC4 }
         ],
         evaluateUniform: ([val]) => {
             const c = toVec4CPU(val);
@@ -177,7 +177,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] }
         ],
         outputs: [
-            { name: "value", type: dataTypes.FLOAT32 }
+            { name: "out", type: dataTypes.FLOAT32 }
         ]
     },
     [NodeType.WorleyNoise]: {
@@ -189,7 +189,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] }
         ],
         outputs: [
-            { name: "value", type: dataTypes.FLOAT32 }
+            { name: "out", type: dataTypes.FLOAT32 }
         ]
     },
     [NodeType.FbmNoise]: {
@@ -215,7 +215,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "translation", type: dataTypes.VEC2, socket: true, default: [0.0, 0.0] }
         ],
         outputs: [
-            { name: "value", type: dataTypes.VEC2 }
+            { name: "out", type: dataTypes.VEC2 }
         ]
     },
     [NodeType.Blend]: {
@@ -227,7 +227,7 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "factor", type: dataTypes.FLOAT32, socket: true, default: 0.5 }
         ],
         outputs: [
-            { name: "value", type: dataTypes.VEC4 }
+            { name: "out", type: dataTypes.VEC4 }
         ],
         evaluateUniform: ([a, b, factor]) => {
             const va = toVec4CPU(a);

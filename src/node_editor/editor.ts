@@ -112,8 +112,8 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     await editor.addNode(invert);
     await editor.addNode(output);
 
-    await editor.addConnection(new ClassicPreset.Connection(color, "value", invert, "value"));
-    await editor.addConnection(new ClassicPreset.Connection(invert, "value", output, "albedo"));
+    await editor.addConnection(new ClassicPreset.Connection(color, "out", invert, "in"));
+    await editor.addConnection(new ClassicPreset.Connection(invert, "out", output, "albedo"));
 
     
 
