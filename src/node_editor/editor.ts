@@ -52,6 +52,7 @@ function SearchableContextMenu(props: {
             };
         })
         .filter(category => !search || category.visibleItems.length > 0);
+    const isActionMenu = props.items.every(item => !item.subitems?.length);
 
     const createNodeItem = (item: ContextMenuItem) => createElement(
         Presets.contextMenu.Item,
@@ -89,30 +90,34 @@ function SearchableContextMenu(props: {
                 onPointerDown: event => event.stopPropagation(),
             })
         ),
-        categories.map(category => search
-            ? createElement(
-                "div",
-                { key: category.key },
-                category.visibleItems.map(createNodeItem)
-            )
-            : createElement(
-                Presets.contextMenu.Item,
-                {
-                    key: category.key,
-                    onPointerEnter: () => setActiveCategory(category.key),
-                    onPointerLeave: () => setActiveCategory(undefined),
-                    hasSubitems: Boolean(category.subitems?.length),
-                    onPointerDown: (event: ReactPointerEvent) => event.stopPropagation(),
-                },
-                category.label,
-                activeCategory === category.key && category.subitems?.length
-                    ? createElement(
-                        Presets.contextMenu.Subitems,
-                        null,
-                        category.subitems.map(createNodeItem)
-                    )
-                    : null
-            ))
+        isActionMenu
+            ? props.items
+                .filter(item => !search || item.label.toLowerCase().includes(search))
+                .map(createNodeItem)
+            : categories.map(category => search
+                ? createElement(
+                    "div",
+                    { key: category.key },
+                    category.visibleItems.map(createNodeItem)
+                )
+                : createElement(
+                    Presets.contextMenu.Item,
+                    {
+                        key: category.key,
+                        onPointerEnter: () => setActiveCategory(category.key),
+                        onPointerLeave: () => setActiveCategory(undefined),
+                        hasSubitems: Boolean(category.subitems?.length),
+                        onPointerDown: (event: ReactPointerEvent) => event.stopPropagation(),
+                    },
+                    category.label,
+                    activeCategory === category.key && category.subitems?.length
+                        ? createElement(
+                            Presets.contextMenu.Subitems,
+                            null,
+                            category.subitems.map(createNodeItem)
+                        )
+                        : null
+                ))
     );
 }
 
@@ -279,6 +284,38 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     AreaExtensions.selectableNodes(area, AreaExtensions.selector(), { accumulating: AreaExtensions.accumulateOnCtrl() });
     AreaExtensions.simpleNodesOrder(area);
     AreaExtensions.zoomAt(area, editor.getNodes()); 
+
+    document.addEventListener("keydown", event => {
+        if (event.key !== "Delete" && event.key !== "Backspace") return;
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        if (event.target instanceof Element && event.target.closest(
+            "input, textarea, select, button, [contenteditable='true']"
+        )) return;
+
+        const selectedNodes = editor.getNodes().filter(node => node.selected);
+        if (selectedNodes.length === 0) return;
+
+        event.preventDefault();
+        void (async () => {
+            const selectedIds = new Set(selectedNodes.map(node => node.id));
+            const connectionsToRemove = editor.getConnections().filter(connection =>
+                selectedIds.has(connection.source) || selectedIds.has(connection.target)
+            );
+
+            for (const connection of connectionsToRemove) {
+                if (!await editor.removeConnection(connection.id)) {
+                    throw new Error(`Failed to remove connection ${connection.id}`);
+                }
+            }
+            for (const node of selectedNodes) {
+                if (!await editor.removeNode(node.id)) {
+                    throw new Error(`Failed to remove node ${node.id}`);
+                }
+            }
+        })().catch(error => {
+            console.error("Failed to delete selected nodes:", error);
+        });
+    });
 
     const exportButton = document.getElementById("exportGlyfButton") as HTMLButtonElement;
     const importButton = document.getElementById("importGlyfButton") as HTMLButtonElement;
