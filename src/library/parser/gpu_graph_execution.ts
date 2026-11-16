@@ -190,12 +190,14 @@ export class GPUGraphExecution {
 
     // Execute each node in dependency order and collect the final output texture
     private async run(graph: Graph): Promise<void> {
+        // create gpu buffers from the graph 
         const r = this.packAndGenBufs(graph);
 
         if (r.nodeCount > this.device.limits.maxComputeWorkgroupsPerDimension) {
             throw new Error("Graph exceeds the initial scheduler's node limit");
         }
 
+        // load or create gpu pipelines
         let pending = pipelineCache.get(this.device);
 
         if (!pending) {
@@ -205,14 +207,13 @@ export class GPUGraphExecution {
 
         const p = await pending;
 
-        const bufferEntries = (buffers: GPUBuffer[]
-
-        ): GPUBindGroupEntry[] =>
+        const bufferEntries = (buffers: GPUBuffer[]): GPUBindGroupEntry[] =>
             buffers.map((buffer, binding) => ({
                 binding,
                 resource: { buffer },
             }));
 
+        // connect gpu shaders to buffers
         const schedulerGroup = this.device.createBindGroup({
             layout: p.schedulerLayout,
             entries: bufferEntries([
@@ -312,6 +313,15 @@ const pipelineCache = new WeakMap<
 GPUDevice, ReturnType<typeof createGraphPipelines>
 >();
 
+// Create gpu compute pipelines. 
+// Will be cached in pipelineCache for reusing
+//
+// 1. seed: starts from the output node
+// 2. propagate: finds upstream dependencies
+// 3. ready: finds nodes whose inputs are complete
+// 4. interpreter: evaluates graph nodes
+// 5. complete: evaluated nodes as done
+// 6. outputs: writes final values to textures
 async function createGraphPipelines(device: GPUDevice) {
     const schedulerModule = device.createShaderModule({
         code: schedulerWGSL,
