@@ -78,7 +78,7 @@ export function topoSort(G: Graph) {
 
 // Helper to get the input sockets for a node
 export function getInputs(
-    node: GraphNode, textures: Map<number, GPUTexture>
+    node: GraphNode, textures: Map<number, GPUTexture>, uniformNodes: Map<number, GraphValue>
 ): Map<number, GPUTexture> {
     if (!nodeDefinitions[node.typeId]) {
         throw new Error(`Invalid node type: ${node.typeId}`);
@@ -87,6 +87,10 @@ export function getInputs(
     const inputs = new Map<number, GPUTexture>();
 
     for (const conn of node.connections) {
+        if (uniformNodes.has(conn.upstreamNodeId)) {
+            continue;
+        }
+
         const texture = textures.get(conn.upstreamNodeId);
         if (!texture) {
             throw new Error(`Missing output from input node ${conn.upstreamNodeId}`);
@@ -100,22 +104,51 @@ export function getInputs(
 // Helper to get the input values for a node
 export function getValues(
     node: GraphNode,
-    inputs: Map<number, GPUTexture>
+    inputs: Map<number, GPUTexture>,
+    uniformNodes: Map<number, GraphValue>
 ): (GraphValue | undefined)[] {
     const values: (GraphValue | undefined)[] = [];
     const nodeDefn = nodeDefinitions[node.typeId];
+
     for (let i = 0; i < nodeDefn.parameters.length; ++i) {
-        const val = node.parameters[i] ?? nodeDefn.parameters[i].default;
-        if (!inputs.has(i)) {
+        // check if the socket is connected to a uniform node
+        const conn = node.connections.find(c => c.inputSocket === i);
+        const uniformVal = conn ? uniformNodes.get(conn.upstreamNodeId) : undefined;
+
+        const val = uniformVal ?? node.parameters[i] ?? nodeDefn.parameters[i].default;
+
+        if (!inputs.has(i) && uniformVal === undefined) {
             if (nodeDefn.parameters[i].socket && nodeDefn.parameters[i].default == undefined) {
                 throw new Error(`Missing input connection`);
             }
-            if (val == undefined) {
+            if (val == undefined && uniformVal === undefined) {
                 throw new Error(`${nodeDefn.parameters[i].name} missing for node ${node.id}`)
             }
-        }
+        } 
         values.push(val);
     }
 
     return values;
+}
+
+// TODO/THINK ABOUT: right no
+export function evaluateUniformNode(
+    node: GraphNode,
+    uniformNodes: Map<number, GraphValue>,
+    time: number = 0
+) {
+    const def = nodeDefinitions[node.typeId];
+    if (!def.evaluateUniform) {
+        throw new Error(`${def.name} has no CPU uniform evaluator`);
+    }
+
+    const args: GraphValue[] = def.parameters.map((param, i) => {
+        const conn = node.connections.find(c => c.inputSocket === i);
+        if (conn) {
+            return uniformNodes.get(conn.upstreamNodeId)!;
+        }
+        return (node.parameters[i] ?? param.default)!;
+    });
+
+    return def.evaluateUniform(args, time);
 }

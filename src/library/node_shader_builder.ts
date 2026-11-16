@@ -25,7 +25,9 @@ const toVec4: Record<string, (v: string) => string> = {
     vec4:    v => v,
 };
 
-function toVec4CPU(v: GraphValue): number[] {
+export const asFloat = (v: GraphValue): number => Array.isArray(v) ? v[0] : v;
+
+export function toVec4CPU(v: GraphValue): number[] {
     if (typeof v === "number") return [v, v, v, 1];
     if (v.length === 2) return [v[0], v[1], 0, 1];
     if (v.length === 3) return [v[0], v[1], v[2], 1];

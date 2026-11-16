@@ -18,13 +18,14 @@
         texComputeBindGroupLayout: GPUBindGroupLayout;
         texComputeBindGroup: GPUBindGroup;
         
-        
         renderBindGroupLayout: GPUBindGroupLayout;
         renderBindGroup: GPUBindGroup;
         renderPipeline: GPURenderPipeline;
 
         sampler: GPUSampler;
         execution: GraphExecution;
+
+        private startTime = performance.now();
 
 
         constructor(stage: Stage, texture: GPUTexture, execution: GraphExecution) {
@@ -158,7 +159,8 @@
             const encoder = renderer.device.createCommandEncoder();
 
             // compute animated textures 
-            this.execution.updateTime(encoder, performance.now() / 1000);
+            const elapsedTime = (performance.now() - this.startTime) / 1000
+            this.execution.updateTime(encoder, elapsedTime);
         
             // render pass
             const renderPass = encoder.beginRenderPass({
