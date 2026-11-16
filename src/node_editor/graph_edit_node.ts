@@ -8,6 +8,20 @@ import type { GraphNode, GraphConnection, GraphValue } from "../library/graph_ty
 const sockets = new Map<string, ClassicPreset.Socket>();
 const controlLabels = new WeakMap<ClassicPreset.Control, string>();
 
+export class ToggleControl extends ClassicPreset.Control {
+    value: boolean;
+
+    constructor(initial: number, private readonly change: (value: number) => void) {
+        super();
+        this.value = initial >= 0.5;
+    }
+
+    toggle() {
+        this.value = !this.value;
+        this.change(Number(this.value));
+    }
+}
+
 export function getControlLabel(control: ClassicPreset.Control) {
     return controlLabels.get(control);
 }
@@ -44,6 +58,10 @@ export class graphEditNode extends ClassicPreset.Node {
         graphEditNode.nextId = Math.max(graphEditNode.nextId, this.graphId + 1);
         this.id = String(this.graphId); // id for Rete.js
         this.typeId = type;
+        const update = (paramIndex: number, value: GraphValue) => {
+            this.params[paramIndex] = value;
+            graphEditNode.onChange(this);
+        };
         
         // set parameters using node definition 
         // socket -> use
@@ -58,7 +76,14 @@ export class graphEditNode extends ClassicPreset.Node {
                 this.params[i] = structuredClone(parameterValue); // deep copy
             }
             if (param.default !== undefined) {
-                control = this.makeControl(i, param.type.type); 
+                if (param.toggle) {
+                    if (typeof parameterValue !== "number") {
+                        throw new Error(`${def.name}.${param.name}: toggle value must be numeric`);
+                    }
+                    control = new ToggleControl(parameterValue, value => update(i, value));
+                } else {
+                    control = this.makeControl(i, param.type.type);
+                }
                 controlLabels.set(control, param.name);
             }
 

@@ -1,7 +1,7 @@
 import { nodeDefinitions, NodeType } from "../../definitions";
 import { Graph, GraphValue, GraphNode } from "../graph_types";
 import { buildNodeShader, packParams, toVec4CPU } from "../node_shader_builder";
-import { evaluateUniformNode, getInputs, getValues, nodeWGSL, topoSort } from "./graph_parser";
+import { evaluateUniformNode, getInputChannels, getInputs, getValues, nodeWGSL, topoSort } from "./graph_parser";
 import { inputBinding, PARAMS_BINDING, OUTPUT_BINDING, timeBinding } from "../bindings";
 
 export class GraphExecution {
@@ -17,12 +17,13 @@ export class GraphExecution {
 
     private readonly animatedNodes = new Set<number>();
 
-    private readonly uniformNodes = new Map<number, GraphValue>();
+    private readonly uniformNodes = new Map<number, GraphValue[]>();
     private readonly animatedUniformNodes: GraphNode[] = []; // topologically ordered
     private readonly animatedUniformBindings: Array<{
         targetNodeId: number;
         socketIndex: number;
         upstreamNodeId: number;
+        upstreamSocket: number;
     }> = [];
     
 
@@ -139,7 +140,8 @@ export class GraphExecution {
         values: (GraphValue | undefined)[],
         inputs: Map<number, GPUTexture>,
         encoder: GPUCommandEncoder,
-        nodeID?: number // doesnt exist for output fallback 
+        nodeID?: number, // doesnt exist for output fallback
+        inputChannels: number[] = []
     ) {
         const pipeline = await this.getPipeline(type);
         const def = nodeDefinitions[type];
@@ -149,7 +151,7 @@ export class GraphExecution {
             connected.push(inputs.has(i));
         }
     
-        const data = packParams(def, values, connected);
+        const data = packParams(def, values, connected, inputChannels);
         const buffer = this.device.createBuffer({
             size: data.byteLength,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
@@ -205,7 +207,7 @@ export class GraphExecution {
         }
 
         const encoder = this.device.createCommandEncoder();
-        const textures = new Map<number, GPUTexture>();
+        const textures = new Map<number, GPUTexture[]>();
         const nDefn = nodeDefinitions[NodeType.Output];
         for (const node of ordered) {
             if (node.typeId == NodeType.Output) {
@@ -233,6 +235,7 @@ export class GraphExecution {
                                 targetNodeId: syntheticId,
                                 socketIndex: 0,
                                 upstreamNodeId: conn.upstreamNodeId,
+                                upstreamSocket: conn.upstreamSocket,
                             });
                             this.animatedNodes.add(syntheticId);
                         }
@@ -246,7 +249,7 @@ export class GraphExecution {
             // a node if uniform if:
             // 1. for its node type, canBeUniform === true
             // 2. every connected upstream node is in uniformNodes
-            const isUniform = Boolean(def.evaluateUniform) &&
+            const isUniform = Boolean(def.evaluateUniform || def.evaluateUniformOutputs) &&
                 node.connections.every(c => this.uniformNodes.has(c.upstreamNodeId));
 
             const isAnimated = def.useUTime ||
@@ -272,7 +275,8 @@ export class GraphExecution {
                 values,
                 inputs,
                 encoder, 
-                node.id // to store in nodeRecords!
+                node.id, // to store in nodeRecords!
+                getInputChannels(node, graph.nodes)
             );
 
             for (const conn of node.connections) {
@@ -281,6 +285,7 @@ export class GraphExecution {
                         targetNodeId: node.id,
                         socketIndex: conn.inputSocket,
                         upstreamNodeId: conn.upstreamNodeId,
+                        upstreamSocket: conn.upstreamSocket,
                     });
                 }
             }
@@ -294,7 +299,15 @@ export class GraphExecution {
                 throw new Error(`Error creating texture`);
             }
 
-            textures.set(node.id, texture);
+            if (def.outputs.length > 1 && !def.packedOutputType) {
+                throw new Error(`${def.name} has multiple outputs but no packed output format`);
+            }
+            textures.set(
+                node.id,
+                def.packedOutputType
+                    ? def.outputs.map(() => texture)
+                    : [texture]
+            );
         }
 
         this.device.queue.submit([encoder.finish()]);
@@ -319,7 +332,10 @@ export class GraphExecution {
 
         for (const binding of this.animatedUniformBindings) {
             const record = this.nodeRecords.get(binding.targetNodeId)!;
-            const val = this.uniformNodes.get(binding.upstreamNodeId)!;
+            const val = this.uniformNodes.get(binding.upstreamNodeId)?.[binding.upstreamSocket];
+            if (val === undefined) {
+                throw new Error(`Missing animated uniform output ${binding.upstreamSocket} from node ${binding.upstreamNodeId}`);
+            }
             const packedVec4 = new Float32Array(toVec4CPU(val));
             this.device.queue.writeBuffer(record.paramsBuffer, binding.socketIndex * 16, packedVec4);
         }

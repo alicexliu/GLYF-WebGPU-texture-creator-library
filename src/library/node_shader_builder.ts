@@ -37,7 +37,7 @@ export function toVec4CPU(v: GraphValue): number[] {
 export function buildNodeShader(def: NodeDefinition, nodeWGSL: string) {
      if (def.outputs.length === 0) throw new Error(`${def.name} has no output`); // for Output node 
 
-    const outType = def.outputs[0].type.type;
+    const outType = def.packedOutputType ?? def.outputs[0].type.type;
     const paramN = Math.max(def.parameters.length, 1);
 
     const bindings: string[] = []; // ex. @group(0) @binding(2) ... 
@@ -55,7 +55,9 @@ export function buildNodeShader(def: NodeDefinition, nodeWGSL: string) {
 
             const fallbackForUV = param.name == "uv" && type == "vec2" ? "vec4f(uv, 0.0, 1.0)" : `params.values[${i}]`;
             // select socket tex or param, depending on connection 
-            reads.push(`let raw${i} = select(${fallbackForUV}, textureLoad(in${i}, pixel, 0), params.connected[${i}].x > 0.5);`);
+            reads.push(`let sampled${i} = textureLoad(in${i}, pixel, 0);`);
+            reads.push(`let selected${i} = select(sampled${i}, vec4f(sampled${i}[u32(max(params.connected[${i}].y - 1.0, 0.0))], 0.0, 0.0, 1.0), params.connected[${i}].y > 0.5);`);
+            reads.push(`let raw${i} = select(${fallbackForUV}, selected${i}, params.connected[${i}].x > 0.5);`);
         }
 
         // param/default
@@ -110,7 +112,8 @@ export function buildNodeShader(def: NodeDefinition, nodeWGSL: string) {
 // values: array<vec4f, N>
 // connected: array<vec4f, N>
 export function packParams(def: NodeDefinition, values: (GraphValue | undefined)[], 
-                           connected: boolean[]): Float32Array<ArrayBuffer> {
+                           connected: boolean[],
+                           inputChannels: number[] = []): Float32Array<ArrayBuffer> {
     const n = Math.max(def.parameters.length, 1);
     // n * (vec4) * 2
     const data = new Float32Array(n * 8);             
@@ -121,6 +124,7 @@ export function packParams(def: NodeDefinition, values: (GraphValue | undefined)
         if (v !== undefined) data.set(toVec4CPU(v), i * 4);
         // connected 
         data[n * 4 + i * 4] = connected[i] ? 1 : 0; 
+        data[n * 4 + i * 4 + 1] = inputChannels[i] ?? 0;
     }
     return data;
 }

@@ -5,7 +5,9 @@ import colorWGSL from "../node_shaders/generate/color.cs.wgsl?raw";
 import constantWGSL from "../node_shaders/generate/constant.cs.wgsl?raw";
 import addWGSL from "../node_shaders/combine/add.cs.wgsl?raw";
 import subtractWGSL from "../node_shaders/combine/subtract.cs.wgsl?raw";
+import stepWGSL from "../node_shaders/combine/step.cs.wgsl?raw";
 import multiplyWGSL from "../node_shaders/combine/multiply.cs.wgsl?raw";
+import powerWGSL from "../node_shaders/combine/power.cs.wgsl?raw";
 import invertWGSL from "../node_shaders/combine/invert.cs.wgsl?raw";
 import blendWGSL from "../node_shaders/combine/blend.cs.wgsl?raw";
 import perlinWGSL from "../node_shaders/generate/perlin.cs.wgsl?raw";
@@ -13,6 +15,11 @@ import worleyWGSL from "../node_shaders/generate/worley.cs.wgsl?raw";
 import fbmWGSL from "../node_shaders/generate/fbm.cs.wgsl?raw";
 import timeWGSL from "../node_shaders/generate/time.cs.wgsl?raw";
 import uvTransformWGSL from "../node_shaders/combine/uv_transform.cs.wgsl?raw";
+import splitVec4WGSL from "../node_shaders/combine/split_vec4.cs.wgsl?raw";
+import combineVec2WGSL from "../node_shaders/combine/combine_vec2.cs.wgsl?raw";
+import combineVec3WGSL from "../node_shaders/combine/combine_vec3.cs.wgsl?raw";
+import combineVec4WGSL from "../node_shaders/combine/combine_vec4.cs.wgsl?raw";
+import sinCosWGSL from "../node_shaders/combine/sin_cos.cs.wgsl?raw";
 import { nodeDefinitions, NodeType } from "../../definitions";
 
 export const nodeWGSL = {
@@ -21,13 +28,20 @@ export const nodeWGSL = {
     [NodeType.Constant]: {name: "constant", source: constantWGSL},
     [NodeType.Add]: {name: "add", source: addWGSL},
     [NodeType.Subtract]: {name: "subtract", source: subtractWGSL},
+    [NodeType.Step]: {name: "step", source: stepWGSL},
     [NodeType.Multiply]: {name: "multiply", source: multiplyWGSL},
+    [NodeType.Power]: {name: "power", source: powerWGSL},
     [NodeType.Invert]: {name: "invert", source: invertWGSL},
     [NodeType.Blend]: {name: "blend", source: blendWGSL},
     [NodeType.PerlinNoise]: {name: "perlin", source: perlinWGSL},
     [NodeType.WorleyNoise]: {name: "worley", source: worleyWGSL},
     [NodeType.FbmNoise]: {name: "fbm", source: fbmWGSL},
     [NodeType.UVTransform]: {name: "uv_transform", source: uvTransformWGSL},
+    [NodeType.SplitVec4]: {name: "split_vec4", source: splitVec4WGSL},
+    [NodeType.CombineVec2]: {name: "combine_vec2", source: combineVec2WGSL},
+    [NodeType.CombineVec3]: {name: "combine_vec3", source: combineVec3WGSL},
+    [NodeType.CombineVec4]: {name: "combine_vec4", source: combineVec4WGSL},
+    [NodeType.SinCos]: {name: "sin_cos", source: sinCosWGSL},
 };
 
 // dfs node visit helper for tarjan's
@@ -78,7 +92,7 @@ export function topoSort(G: Graph) {
 
 // Helper to get the input sockets for a node
 export function getInputs(
-    node: GraphNode, textures: Map<number, GPUTexture>, uniformNodes: Map<number, GraphValue>
+    node: GraphNode, textures: Map<number, GPUTexture[]>, uniformNodes: Map<number, GraphValue[]>
 ): Map<number, GPUTexture> {
     if (!nodeDefinitions[node.typeId]) {
         throw new Error(`Invalid node type: ${node.typeId}`);
@@ -91,9 +105,9 @@ export function getInputs(
             continue;
         }
 
-        const texture = textures.get(conn.upstreamNodeId);
+        const texture = textures.get(conn.upstreamNodeId)?.[conn.upstreamSocket];
         if (!texture) {
-            throw new Error(`Missing output from input node ${conn.upstreamNodeId}`);
+            throw new Error(`Missing output ${conn.upstreamSocket} from input node ${conn.upstreamNodeId}`);
         }
         inputs.set(conn.inputSocket, texture);
     }
@@ -105,7 +119,7 @@ export function getInputs(
 export function getValues(
     node: GraphNode,
     inputs: Map<number, GPUTexture>,
-    uniformNodes: Map<number, GraphValue>
+    uniformNodes: Map<number, GraphValue[]>
 ): (GraphValue | undefined)[] {
     const values: (GraphValue | undefined)[] = [];
     const nodeDefn = nodeDefinitions[node.typeId];
@@ -113,7 +127,7 @@ export function getValues(
     for (let i = 0; i < nodeDefn.parameters.length; ++i) {
         // check if the socket is connected to a uniform node
         const conn = node.connections.find(c => c.inputSocket === i);
-        const uniformVal = conn ? uniformNodes.get(conn.upstreamNodeId) : undefined;
+        const uniformVal = conn ? uniformNodes.get(conn.upstreamNodeId)?.[conn.upstreamSocket] : undefined;
 
         const val = uniformVal ?? node.parameters[i] ?? nodeDefn.parameters[i].default;
 
@@ -134,21 +148,46 @@ export function getValues(
 // TODO/THINK ABOUT: right no
 export function evaluateUniformNode(
     node: GraphNode,
-    uniformNodes: Map<number, GraphValue>,
+    uniformNodes: Map<number, GraphValue[]>,
     time: number = 0
-) {
+): GraphValue[] {
     const def = nodeDefinitions[node.typeId];
-    if (!def.evaluateUniform) {
+    if (!def.evaluateUniform && !def.evaluateUniformOutputs) {
         throw new Error(`${def.name} has no CPU uniform evaluator`);
     }
 
     const args: GraphValue[] = def.parameters.map((param, i) => {
         const conn = node.connections.find(c => c.inputSocket === i);
         if (conn) {
-            return uniformNodes.get(conn.upstreamNodeId)!;
+            const value = uniformNodes.get(conn.upstreamNodeId)?.[conn.upstreamSocket];
+            if (value === undefined) {
+                throw new Error(`Missing uniform output ${conn.upstreamSocket} from node ${conn.upstreamNodeId}`);
+            }
+            return value;
         }
-        return (node.parameters[i] ?? param.default)!;
+        const value = node.parameters[i] ?? param.default;
+        if (value === undefined) {
+            throw new Error(`${param.name} missing for node ${node.id}`);
+        }
+        return value;
     });
 
-    return def.evaluateUniform(args, time);
+    if (def.evaluateUniformOutputs) {
+        return def.evaluateUniformOutputs(args, time);
+    }
+    return [def.evaluateUniform!(args, time)];
+}
+
+export function getInputChannels(node: GraphNode, nodes: GraphNode[]): number[] {
+    const channels = new Array<number>(nodeDefinitions[node.typeId].parameters.length).fill(0);
+    for (const connection of node.connections) {
+        const upstreamNode = nodes.find(candidate => candidate.id === connection.upstreamNodeId);
+        if (!upstreamNode) {
+            throw new Error(`Missing node ${connection.upstreamNodeId}`);
+        }
+        if (nodeDefinitions[upstreamNode.typeId].packedOutputType) {
+            channels[connection.inputSocket] = connection.upstreamSocket + 1;
+        }
+    }
+    return channels;
 }

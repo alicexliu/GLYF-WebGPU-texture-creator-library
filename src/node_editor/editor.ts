@@ -10,7 +10,7 @@ import { serializeGlyf } from "../library/converter/glyf_converter";
 import { parseGlyf } from "../library/parser/glyf_parser";
 
 // custom nodes 
-import { getControlLabel, graphEditNode } from "./graph_edit_node";
+import { getControlLabel, graphEditNode, ToggleControl } from "./graph_edit_node";
 import { NodeType } from "../definitions";
 
 import type { Graph, GraphNode, GraphConnection } from "../library/graph_types";
@@ -54,6 +54,25 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
             ),
             control: ({ payload }) => {
                 const label = getControlLabel(payload);
+                if (payload instanceof ToggleControl) {
+                    return ({ data }) => createElement(
+                        "div",
+                        { className: "rete-parameter-control" },
+                        createElement("span", { className: "rete-parameter-label" }, label),
+                        createElement("button", {
+                            type: "button",
+                            className: "rete-toggle-control",
+                            "aria-pressed": data.value,
+                            onPointerDown: event => event.stopPropagation(),
+                            onClick: event => {
+                                event.stopPropagation();
+                                data.toggle();
+                                event.currentTarget.textContent = data.value ? "cos" : "sin";
+                                event.currentTarget.setAttribute("aria-pressed", String(data.value));
+                            },
+                        }, data.value ? "cos" : "sin")
+                    );
+                }
                 if (!label || !(payload instanceof ClassicPreset.InputControl)) return null;
 
                 return ({ data }) => createElement(
