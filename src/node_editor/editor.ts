@@ -9,6 +9,7 @@ import { ConnectionPlugin, Presets as ConnectionPresets } from "rete-connection-
 import { AreaExtensions } from "rete-area-plugin";
 import { serializeGlyf } from "../library/converter/glyf_converter";
 import { parseGlyf } from "../library/parser/glyf_parser";
+import { Rete2Graph } from "./import_export";
 
 // custom nodes 
 import { getControlLabel, graphEditNode, ToggleControl } from "./graph_edit_node";
@@ -446,35 +447,4 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     return editor;
 }
 
-// returns a Graph based on the current Node editor status on Rete.js side 
-export function Rete2Graph(editor: NodeEditor<Schemes>): Graph {
-    const connections = editor.getConnections();
 
-    const nodes: GraphNode[] = editor.getNodes().map(n => {
-
-        // for each node 
-        const id = n.graphId;
-        const typeId = n.typeId;    
-        const parameters = n.params; // todo: undefined?    
-        const def = nodeDefinitions[n.typeId];
-
-        // for each connecction
-        const myConnections: GraphConnection[] = connections
-            .filter(c => c.target === n.id)
-            .map(c => {
-                const inputSocket = def.parameters.findIndex(p => p.name === c.targetInput);
-                const src = editor.getNode(c.source)!;
-
-                const upstreamNodeId = src.graphId;
-                const upstreamSocket = nodeDefinitions[src.typeId].outputs.findIndex(o => o.name === c.sourceOutput);
-
-                return { inputSocket, upstreamNodeId, upstreamSocket};
-            });
-
-        return { id, typeId, connections: myConnections, parameters };
-
-    });
-
-    const output = nodes.find(n => n.typeId === NodeType.Output);
-    return { nodes, outputNodeId: output ? output.id : -1 };
-}

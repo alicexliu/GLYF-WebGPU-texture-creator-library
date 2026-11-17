@@ -7,9 +7,9 @@ import { TextureRenderer } from './node_editor/texture_render';
 import { setupLoaders, Scene } from './stage/scene';
 import { Camera } from './stage/camera';
 import { Stage } from './stage/stage';
-import { createEditor, Rete2Graph } from './node_editor/editor';
+import { createEditor } from './node_editor/editor';
+import { Rete2Graph, setupPngExport } from './node_editor/import_export';
 import { Graph } from './library/graph_types';
-import { NodeType } from './definitions';
 import { GraphExecution } from './library/parser/graph_execution';
 import { setupResizableLayout } from './layout';
 
@@ -29,7 +29,6 @@ async function updateGraph(graph: Graph): Promise<boolean> {
     }
 }
 
-
 // get the GPU adapter + device
 setupResizableLayout();
 await initWebGPU();
@@ -39,6 +38,7 @@ let ready = false
 const editor = await createEditor(document.getElementById("rete")!, g => ready ? updateGraph(g) : undefined);
 ready = true;
 await updateGraph(Rete2Graph(editor));
+setupPngExport(device, () => Rete2Graph(editor));
 
 // loader for gltf / image
 setupLoaders();

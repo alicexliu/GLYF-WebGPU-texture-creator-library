@@ -147,7 +147,6 @@ export function getValues(
     return values;
 }
 
-// TODO/THINK ABOUT: right no
 export function evaluateUniformNode(
     node: GraphNode,
     uniformNodes: Map<number, GraphValue[]>,

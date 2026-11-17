@@ -246,7 +246,7 @@ export class GraphExecution {
             }
             const def = nodeDefinitions[node.typeId];
 
-            // a node if uniform if:
+            // a node is uniform if:
             // 1. for its node type, canBeUniform === true
             // 2. every connected upstream node is in uniformNodes
             const isUniform = Boolean(def.evaluateUniform || def.evaluateUniformOutputs) &&
