@@ -1,6 +1,6 @@
 import { NodeEditor, GetSchemes, ClassicPreset } from "rete";
 import { createElement, useRef, useState } from "react";
-import type { HTMLProps, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
+import type { HTMLProps, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { css } from "styled-components";
 import { AreaPlugin } from "rete-area-plugin";
@@ -53,6 +53,7 @@ function SearchableContextMenu(props: {
         })
         .filter(category => !search || category.visibleItems.length > 0);
     const isActionMenu = props.items.every(item => !item.subitems?.length);
+    const searchResults = categories.flatMap(category => category.visibleItems);
 
     const createNodeItem = (item: ContextMenuItem) => createElement(
         Presets.contextMenu.Item,
@@ -88,6 +89,16 @@ function SearchableContextMenu(props: {
                 value: query,
                 onChange: event => setQuery(event.currentTarget.value),
                 onPointerDown: event => event.stopPropagation(),
+                onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => {
+                    if (event.key !== "Enter" || !search || isActionMenu) return;
+                    const firstResult = searchResults[0];
+                    if (!firstResult) return;
+
+                    event.preventDefault();
+                    event.stopPropagation();
+                    firstResult.handler();
+                    props.onHide();
+                },
             })
         ),
         isActionMenu

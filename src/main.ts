@@ -57,8 +57,13 @@ const gui = new GUI();
 const stage = new Stage(scene, camera, stats);
 
 var renderer: Renderer | undefined;
+const renderModes = { texture: 'Default texture', sphere: 'Sphere' };
+const renderMode = { mode: renderModes.texture };
+const renderModeController = gui.add(renderMode, 'mode', renderModes);
+const spherePosition = { x: 0.5, y: 0.5, radius: 1, yaw: 0, pitch: 0 };
 
-function setRenderer() {
+function setRenderer(mode: string = renderMode.mode) {
+    renderMode.mode = mode;
     renderer?.stop();
 
     const texture = execution.outputs.get("albedo");
@@ -66,15 +71,15 @@ function setRenderer() {
         throw new Error("Missing albedo output from graph execution");
     }
 
-    renderer = new TextureRenderer(stage, texture, execution);
-    // switch (mode) {
-        // todo: more options for preview, 
-        // like texture on object
-    // }
+    renderer = new TextureRenderer(
+        stage,
+        texture,
+        execution,
+        mode === renderModes.sphere,
+        spherePosition
+    );
 }
 
-const renderModes = { defTex: 'default texture'};
-let renderModeController = gui.add({ mode: renderModes.defTex }, 'mode', renderModes);
 renderModeController.onChange(setRenderer);
 
 setRenderer();

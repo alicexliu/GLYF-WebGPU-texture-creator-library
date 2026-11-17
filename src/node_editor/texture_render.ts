@@ -21,16 +21,35 @@
         renderBindGroupLayout: GPUBindGroupLayout;
         renderBindGroup: GPUBindGroup;
         renderPipeline: GPURenderPipeline;
+        sphereParamsBuffer?: GPUBuffer;
 
         sampler: GPUSampler;
         execution: GraphExecution;
+        private readonly spherePreview: boolean;
+        private sphereDragStart?: {
+            button: number;
+            pointerX: number;
+            pointerY: number;
+            centerX: number;
+            centerY: number;
+            yaw: number;
+            pitch: number;
+            radius: number;
+        };
 
         private startTime = performance.now();
 
 
-        constructor(stage: Stage, texture: GPUTexture, execution: GraphExecution) {
+        constructor(
+            stage: Stage,
+            texture: GPUTexture,
+            execution: GraphExecution,
+            spherePreview = false,
+            private readonly spherePosition = { x: 0.5, y: 0.5, radius: 1, yaw: 0, pitch: 0 }
+        ) {
             super(stage);
             this.execution = execution;
+            this.spherePreview = spherePreview;
 
             // this.outputTexture = renderer.device.createTexture({
             //     size: [512, 512],
@@ -95,8 +114,7 @@
             });
 
             // render pipeline: display texture 
-            this.renderBindGroupLayout = renderer.device.createBindGroupLayout({
-                entries: [
+            const renderBindings: GPUBindGroupLayoutEntry[] = [
                     {
                         binding: 0,
                         visibility: GPUShaderStage.FRAGMENT,
@@ -109,21 +127,31 @@
                         visibility: GPUShaderStage.FRAGMENT,
                         sampler: { type: "filtering" }
                     }
-                ]
-            });
+                ];
+            if (spherePreview) {
+                this.sphereParamsBuffer = renderer.device.createBuffer({
+                    label: "sphere preview parameters",
+                    size: 32,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+                this.updateSphereParams();
+                renderBindings.push({
+                    binding: 2,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: { type: "uniform" }
+                });
+            }
+            this.renderBindGroupLayout = renderer.device.createBindGroupLayout({ entries: renderBindings });
+            const renderEntries: GPUBindGroupEntry[] = [
+                { binding: 0, resource: this.outputTextureView },
+                { binding: 1, resource: this.sampler }
+            ];
+            if (this.sphereParamsBuffer) {
+                renderEntries.push({ binding: 2, resource: { buffer: this.sphereParamsBuffer } });
+            }
             this.renderBindGroup = renderer.device.createBindGroup({
                 layout: this.renderBindGroupLayout,
-                entries: [
-                    {
-                        binding: 0,
-                        resource: this.outputTextureView
-                    },
-                    {
-                        binding: 1,
-                        resource: this.sampler
-                    }
-                    
-                ]
+                entries: renderEntries
             });
 
             this.renderPipeline = renderer.device.createRenderPipeline({
@@ -143,7 +171,7 @@
                 fragment: {
                     module: renderer.device.createShaderModule({
                         label: "node frag shader",
-                        code: shaders.displayFragSrc
+                        code: spherePreview ? shaders.sphereDisplayFragSrc : shaders.displayFragSrc
                     }),
                     targets: [
                         {
@@ -152,7 +180,114 @@
                     ]
                 }
             });
+            if (spherePreview) {
+                renderer.canvas.addEventListener("mousedown", this.onSphereMouseDown, true);
+                renderer.canvas.addEventListener("contextmenu", this.onSphereContextMenu, true);
+                renderer.canvas.addEventListener("wheel", this.onSphereWheel, { capture: true, passive: false });
+                window.addEventListener("mousemove", this.onSphereMouseMove);
+                window.addEventListener("mouseup", this.onSphereMouseUp);
+            }
         }
+
+        override stop(): void {
+            super.stop();
+            if (this.spherePreview) {
+                renderer.canvas.removeEventListener("mousedown", this.onSphereMouseDown, true);
+                renderer.canvas.removeEventListener("contextmenu", this.onSphereContextMenu, true);
+                renderer.canvas.removeEventListener("wheel", this.onSphereWheel, true);
+                window.removeEventListener("mousemove", this.onSphereMouseMove);
+                window.removeEventListener("mouseup", this.onSphereMouseUp);
+                this.sphereParamsBuffer?.destroy();
+                this.sphereParamsBuffer = undefined;
+            }
+        }
+
+        private updateSphereParams(): void {
+            if (!this.sphereParamsBuffer) return;
+            renderer.device.queue.writeBuffer(
+                this.sphereParamsBuffer,
+                0,
+                new Float32Array([
+                    this.spherePosition.x, this.spherePosition.y, this.spherePosition.radius, 0,
+                    this.spherePosition.yaw, this.spherePosition.pitch, 0, 0
+                ])
+            );
+        }
+
+        private onSphereWheel = (event: WheelEvent): void => {
+            const rect = renderer.canvas.getBoundingClientRect();
+            const x = (event.clientX - rect.left - rect.width * this.spherePosition.x) / rect.width;
+            const y = (event.clientY - rect.top - rect.height * this.spherePosition.y) / rect.height;
+            if (Math.hypot(x, y) > this.spherePosition.radius * 0.5) return;
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.spherePosition.radius = Math.max(
+                0.35,
+                Math.min(2.5, this.spherePosition.radius * Math.exp(-event.deltaY * 0.001))
+            );
+            this.updateSphereParams();
+        };
+
+        private onSphereMouseDown = (event: MouseEvent): void => {
+            if (event.button !== 0 && event.button !== 2) {
+                event.stopImmediatePropagation();
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            const rect = renderer.canvas.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / rect.width;
+            const y = (event.clientY - rect.top) / rect.height;
+            const sphereX = (x - this.spherePosition.x) * 2 / this.spherePosition.radius;
+            const sphereY = (this.spherePosition.y - y) * 2 / this.spherePosition.radius;
+            if (sphereX * sphereX + sphereY * sphereY > 1) return;
+
+            this.sphereDragStart = {
+                button: event.button,
+                pointerX: event.clientX,
+                pointerY: event.clientY,
+                centerX: this.spherePosition.x,
+                centerY: this.spherePosition.y,
+                yaw: this.spherePosition.yaw,
+                pitch: this.spherePosition.pitch,
+                radius: this.spherePosition.radius
+            };
+        };
+
+        private onSphereMouseMove = (event: MouseEvent): void => {
+            if (!this.sphereDragStart) return;
+            const rect = renderer.canvas.getBoundingClientRect();
+            const deltaX = event.clientX - this.sphereDragStart.pointerX;
+            const deltaY = event.clientY - this.sphereDragStart.pointerY;
+            if (this.sphereDragStart.button === 2) {
+                this.spherePosition.yaw = this.sphereDragStart.yaw + deltaX / rect.width * 2 * Math.PI;
+                this.spherePosition.pitch = Math.max(
+                    -Math.PI / 2,
+                    Math.min(Math.PI / 2, this.sphereDragStart.pitch + deltaY / rect.height * Math.PI)
+                );
+            } else {
+                this.spherePosition.x = Math.max(0, Math.min(1,
+                    this.sphereDragStart.centerX + deltaX / rect.width
+                ));
+                this.spherePosition.y = Math.max(0, Math.min(1,
+                    this.sphereDragStart.centerY + deltaY / rect.height
+                ));
+            }
+            this.updateSphereParams();
+        };
+
+        private onSphereMouseUp = (event: MouseEvent): void => {
+            if (this.sphereDragStart?.button === event.button) {
+                this.sphereDragStart = undefined;
+            }
+        };
+
+        private onSphereContextMenu = (event: MouseEvent): void => {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        };
 
         override draw() {
             const canvasTextureView = renderer.context.getCurrentTexture().createView();

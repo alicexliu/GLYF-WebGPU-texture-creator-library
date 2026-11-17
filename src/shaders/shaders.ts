@@ -3,6 +3,7 @@ import commonRaw from './common.wgsl?raw';
 import fullscreenVertRaw from './fullscreen.vs.wgsl?raw';
 // import noiseComputeRaw from './noise.cs.wgsl?raw';
 import displayFragRaw from './display.fs.wgsl?raw';
+import sphereDisplayFragRaw from './sphere_display.fs.wgsl?raw';
 
 
 // CONSTANTS (for use in shaders)
@@ -46,3 +47,4 @@ export const fullscreenVertSrc: string = processShaderRaw(fullscreenVertRaw);
 
 // export const noiseComputeSrc: string = processShaderRaw(noiseComputeRaw);
 export const displayFragSrc: string = processShaderRaw(displayFragRaw);
+export const sphereDisplayFragSrc: string = processShaderRaw(sphereDisplayFragRaw);
