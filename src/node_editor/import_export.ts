@@ -113,6 +113,7 @@ export async function exportTextureToPng(
     }
 }
 
+// TODO: add functionality to export normals, alpha, etc, not just albedo
 export function setupPngExport(
     device: GPUDevice,
     getGraph: () => Graph | undefined,
