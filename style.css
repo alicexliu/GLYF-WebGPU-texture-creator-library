@@ -135,3 +135,39 @@ html, body {
     color: #ddd;
     font-size: 12px;
 }
+
+#reservedPanel {
+    box-sizing: border-box;
+    overflow: auto;
+    padding: 12px;
+    color: #ddd;
+    font: 12px system-ui;
+}
+
+.cost-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+#reservedPanel table {
+    width: 100%;
+    border-collapse: collapse;
+    white-space: nowrap;
+}
+
+#reservedPanel th,
+#reservedPanel td {
+    padding: 6px;
+    text-align: left;
+    border-bottom: 1px solid #444;
+}
+
+#reservedPanel button,
+#reservedPanel select {
+    padding: 5px;
+    color: #eee;
+    background: #333;
+    border: 1px solid #666;
+}

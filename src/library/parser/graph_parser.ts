@@ -1,6 +1,6 @@
 // Parsing to generate WGSL for each texture Graph
 
-import { Graph, GraphNode, GraphValue } from "../graph_types";
+import { ExecutionPlan, Graph, GraphNode, GraphValue } from "../graph_types";
 import colorWGSL from "../node_shaders/generate/color.cs.wgsl?raw";
 import constantWGSL from "../node_shaders/generate/constant.cs.wgsl?raw";
 import addWGSL from "../node_shaders/combine/add.cs.wgsl?raw";
@@ -50,8 +50,12 @@ export const nodeWGSL = {
 function dfs_visit(
     G: Graph, u: GraphNode,
     color: Map<GraphNode, number>,
-    f: GraphNode[]
+    f: GraphNode[],
+    validCachedNodes: ReadonlySet<number>
 ): void {
+    if (validCachedNodes.has(u.id)) {
+        return;
+    }
     color.set(u, 1);
     for (const c of u.connections) {
         const v = G.nodes.find(n => n.id == c.upstreamNodeId);
@@ -62,7 +66,7 @@ function dfs_visit(
             throw new Error(`Graph has a cycle`);
         }
         if (color.get(v) == 0) {
-            dfs_visit(G, v, color, f);
+            dfs_visit(G, v, color, f, validCachedNodes);
         }
     }
 
@@ -72,7 +76,7 @@ function dfs_visit(
 
 // Tarjan's to sort Graph (which should be DAG)
 // Returns nodes in decreasing order of finish time
-export function topoSort(G: Graph) {
+export function topoSort(G: Graph, validCachedNodes: ReadonlySet<number> = new Set()) {
     // perform DFS
     // 0=WHITE, 1=GRAY, 2=BLACK
     const nodeColor = new Map<GraphNode, number>();
@@ -87,7 +91,7 @@ export function topoSort(G: Graph) {
     }
 
     const f: GraphNode[] =[];
-    dfs_visit(G, outputNode, nodeColor, f);
+    dfs_visit(G, outputNode, nodeColor, f, validCachedNodes);
     
     return f;
 }
@@ -191,4 +195,83 @@ export function getInputChannels(node: GraphNode, nodes: GraphNode[]): number[] 
         }
     }
     return channels;
+}
+
+
+// Sort graph to collect consumers and time dependence for each node
+export function compileGraph(graph: Graph): ExecutionPlan {
+    const snapshot = structuredClone(graph);
+    const ordered = topoSort(snapshot);
+
+    const plan: ExecutionPlan = {
+        graph: snapshot,
+        ordered,
+        consumers: new Map(),
+        timeDependentNodes: new Set(),
+    };
+
+    for (const node of ordered) {
+        plan.consumers.set(node.id, new Set());
+    }
+
+    for (const node of ordered) {
+        const def = nodeDefinitions[node.typeId];
+        if (!def) {
+            throw new Error("Invalid node type");
+        }
+
+        let isAnimated = Boolean(def.useUTime);
+
+        for (const c of node.connections) {
+            plan.consumers.get(c.upstreamNodeId)!.add(node.id);
+            if (plan.timeDependentNodes.has(c.upstreamNodeId)) {
+                isAnimated = true;
+            }
+        }
+
+        if (isAnimated) {
+            plan.timeDependentNodes.add(node.id);
+        }
+    }
+
+    return plan;
+}
+
+// Collects changed nodes and all downstream nodes that are consumers
+// of iots output
+export function getAffectedNodes(
+    plan: ExecutionPlan,
+    changedNodes: Iterable<number>
+): Set<number> {
+    const affected = new Set<number>();
+    const pending = [...changedNodes];
+
+    while (pending.length > 0) {
+        const id = pending.pop()!;
+        
+        if (affected.has(id)) {
+            continue;
+        }
+
+        affected.add(id);
+
+        for (const consumer of plan.consumers.get(id) ?? []) {
+            pending.push(consumer);
+        }
+    }
+
+    return affected;
+}
+
+// Getter for static nodes
+export function selectStaticNodes(plan: ExecutionPlan): Set<number> {
+    const selected = new Set<number>();
+
+    for (const node of plan.ordered) {
+        if (!plan.timeDependentNodes.has(node.id)) {
+            selected.add(node.id);
+        }
+    }
+
+    return selected;
 }

@@ -13,20 +13,105 @@ import { Graph } from './library/graph_types';
 import { GraphExecution } from './library/parser/graph_execution';
 import { setupResizableLayout } from './layout';
 
-let execution: GraphExecution;
 
-async function updateGraph(graph: Graph): Promise<boolean> {
+const profileButton = document.getElementById("profileCosts") as HTMLButtonElement;
+const cacheMode = document.getElementById("cacheMode") as HTMLSelectElement;
+const costRows = document.getElementById("costRows")!;
+const costSummary = document.getElementById("costSummary")!;
+const costStatus = document.getElementById("costStatus")!;
+
+let execution: GraphExecution;
+let graphUpdates: Promise<boolean> = Promise.resolve(true);
+
+function applyCacheMode(): void {
+    execution?.setCachedNodes(
+        cacheMode.value === "static" ? undefined : new Set()
+    );
+}
+
+async function profileCurrentGraph(): Promise<boolean> {
     try {
+        await execution.profileNodeCosts();
+
+        costStatus.textContent =
+            "Profiling took " + execution.profileMs.toFixed(1) + " ms.";
+
+        return true;
+    } catch (error) {
+        costStatus.textContent = "Profiling failed; see the console.";
+        console.error(error);
+        return false;
+    } finally {
+        profileButton.disabled = false;
+        updateCostPanel();
+    }
+}
+
+// Queues profiling after pending graph edits
+function queueCostProfile(): void {
+    profileButton.disabled = true;
+    costStatus.textContent = "Measuring...";
+    graphUpdates = graphUpdates.then(profileCurrentGraph);
+}
+
+// Refreshes the table without rebuilding the editor or renderer
+function updateCostPanel(): void {
+    if (!execution) {
+        return;
+    }
+
+    costSummary.textContent =
+        "Last update: " + execution.lastDispatchCount +
+        " GPU dispatches. Allocated images: " +
+        (execution.allocatedImageBytes / 1048576).toFixed(2) + " MiB.";
+
+    costRows.replaceChildren();
+
+    for (const row of execution.getNodeCosts()) {
+        const tr = document.createElement("tr");
+        const cells = [
+            "#" + row.id + " " + row.name,
+            row.dynamic ? "Dynamic" : "Static",
+            row.warmTime == null ? "Not measured" : row.warmTime.toFixed(4),
+            row.space == 0 ? "—" : (row.space / 1048576).toFixed(2),
+            row.state,
+        ];
+
+        for (const value of cells) {
+            const td = document.createElement("td");
+            td.textContent = value;
+            tr.append(td);
+        }
+
+        costRows.append(tr);
+    }
+}
+
+async function applyGraphUpdate(graph: Graph): Promise<boolean> {
+    try {
+        if (execution && execution.updateGraph(graph)) {
+            return true;
+        }
+
         const newExecution = await GraphExecution.create(device, graph);
         const old = execution;
         execution = newExecution;
-        setRenderer();
+        applyCacheMode();
+        if (renderer) {
+            setRenderer();
+        }
         old?.destroy();
         return true;
     } catch (e) {
         console.error("Error executing graph:", e);
         return false;
     }
+}
+
+async function updateGraph(graph: Graph): Promise<boolean> {
+    const snapshot = structuredClone(graph);
+    graphUpdates = graphUpdates.then(applyGraphUpdate.bind(null, snapshot));
+    return graphUpdates;
 }
 
 // get the GPU adapter + device
@@ -83,3 +168,9 @@ function setRenderer(mode: string = renderMode.mode) {
 renderModeController.onChange(setRenderer);
 
 setRenderer();
+
+profileButton.addEventListener("click", queueCostProfile);
+cacheMode.addEventListener("change", applyCacheMode);
+
+updateCostPanel();
+setInterval(updateCostPanel, 250);

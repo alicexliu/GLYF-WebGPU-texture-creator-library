@@ -38,7 +38,37 @@
           aria-label="Resize preview and reserved panel"
           tabindex="0"
         ></div>
-        <div id="reservedPanel" aria-label="Reserved panel"></div>
+        <div id="reservedPanel" aria-label="Node execution costs">
+          <div class="cost-controls">
+            <label>
+              Caching
+              <select id="cacheMode">
+                <option value="static">Static intermediate caching</option>
+                <option value="outputs">No intermediate caching</option>
+              </select>
+            </label>
+
+            <button id="profileCosts" type="button">
+              Measure costs for selected caching mode
+            </button>
+          </div>
+
+          <p id="costSummary"></p>
+          <p id="costStatus" role="status"></p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Node</th>
+                <th>Updates</th>
+                <th>Sample time (ms)</th>
+                <th>Image (MiB)</th>
+                <th>State</th>
+              </tr>
+            </thead>
+            <tbody id="costRows"></tbody>
+          </table>
+        </div>
       </main>
     </div>
     <div id="exportStatus" role="status" aria-live="polite"></div>

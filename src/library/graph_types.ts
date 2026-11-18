@@ -25,3 +25,10 @@ export interface Graph {
 export interface GraphEditorInfo {
     nodePositions: Map<number, [number, number]>; // node_id to canvas coords
 }
+
+export interface ExecutionPlan {
+    graph: Graph;
+    ordered: GraphNode[];
+    consumers: Map<number, Set<number>>;
+    timeDependentNodes: Set<number>;
+}

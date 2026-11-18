@@ -1,23 +1,26 @@
 import { nodeDefinitions, NodeType } from "../../definitions";
-import { Graph, GraphValue, GraphNode } from "../graph_types";
+import { Graph, GraphValue, GraphNode, ExecutionPlan } from "../graph_types";
 import { buildNodeShader, packParams, toVec4CPU } from "../node_shader_builder";
-import { evaluateUniformNode, getInputChannels, getInputs, getValues, nodeWGSL, topoSort } from "./graph_parser";
+import { compileGraph, evaluateUniformNode, getAffectedNodes, getInputChannels, getInputs, getValues, nodeWGSL, selectStaticNodes, topoSort } from "./graph_parser";
 import { inputBinding, PARAMS_BINDING, OUTPUT_BINDING, timeBinding } from "../bindings";
+import { estimateNodeCost } from "./node_cost";
 
 export class GraphExecution {
     readonly outputs = new Map<string, GPUTexture>();
-    readonly textures: GPUTexture[] = [];
     private readonly pipelines = new Map<NodeType, GPUComputePipeline>();
     private readonly buffers: GPUBuffer[] = [];
+    private readonly allocatedTextures: GPUTexture[] = [];
     private readonly default: GPUTexture;
     private readonly timeBuffer: GPUBuffer;
 
     private readonly nodeRecords = new Map<number,
                       {pipeline: GPUComputePipeline, bindGroup: GPUBindGroup, paramsBuffer: GPUBuffer}>();
 
-    private readonly animatedNodes = new Set<number>();
-
+    private plan!: ExecutionPlan;
+    private currentTime = 0;
+    private readonly textures = new Map<number, GPUTexture[]>();
     private readonly uniformNodes = new Map<number, GraphValue[]>();
+    
     private readonly animatedUniformNodes: GraphNode[] = []; // topologically ordered
     private readonly animatedUniformBindings: Array<{
         targetNodeId: number;
@@ -26,6 +29,15 @@ export class GraphExecution {
         upstreamSocket: number;
     }> = [];
     
+    private readonly validResults = new Set<number>();
+    private cachedNodes = new Set<number>();
+    readonly lastScheduledNodes: number[] = [];
+
+    private readonly warmCosts = new Map<number, number>();
+
+    isProfiling = false;
+    profileMs = 0;
+    lastDispatchCount = 0;
 
     private constructor(
         private readonly device: GPUDevice,
@@ -78,21 +90,23 @@ export class GraphExecution {
     }
 
     destroy(): void {
-        for (const texture of this.textures) {
+        for (const texture of this.allocatedTextures) {
             texture.destroy();
         }
         for (const buf of this.buffers) {
             buf.destroy();
         }
-        this.textures.length = 0;
+        this.allocatedTextures.length = 0;
         this.buffers.length = 0;
         this.outputs.clear();
         this.pipelines.clear();
         this.nodeRecords.clear();
-        this.animatedNodes.clear();
         this.uniformNodes.clear();
-        this.animatedUniformNodes.length = 0;
-        this.animatedUniformBindings.length = 0;
+        this.textures.clear();
+        this.validResults.clear();
+        this.cachedNodes.clear();
+        this.lastScheduledNodes.length = 0;
+        this.warmCosts.clear();
     }
 
     // Creates a new output texture on GPU
@@ -104,7 +118,7 @@ export class GraphExecution {
                 GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
         });
 
-        this.textures.push(texture);
+        this.allocatedTextures.push(texture);
         return texture;
     }
 
@@ -200,14 +214,17 @@ export class GraphExecution {
 
     // Execute each node in dependency order and collect the final output texture
     private async run(graph: Graph): Promise<void> {
-        const ordered = topoSort(graph);
+        this.plan = compileGraph(graph); // // topo-sorts
+        graph = this.plan.graph; 
+
+        const ordered = this.plan.ordered;
         const outputNode = ordered[ordered.length - 1];
         if (!outputNode || outputNode.typeId !== NodeType.Output) {
             throw new Error("Output node invalid");
         }
 
         const encoder = this.device.createCommandEncoder();
-        const textures = new Map<number, GPUTexture[]>();
+        const textures = this.textures;
         const nDefn = nodeDefinitions[NodeType.Output];
         for (const node of ordered) {
             if (node.typeId == NodeType.Output) {
@@ -216,10 +233,6 @@ export class GraphExecution {
                 for (let i = 0; i < nDefn.parameters.length; ++i) {
                     let texture = inputs.get(i);
                     if (!texture) {
-                        const syntheticId = -(i + 1);
-                        const conn = node.connections.find(c => c.inputSocket === i);
-                        const isOutputAnimated = conn !== undefined &&
-                            this.animatedUniformNodes.some(u => u.id === conn.upstreamNodeId);
 
                         // setting as default so unconnected output doesnt crash
                         texture = await this.encodeNode(
@@ -227,18 +240,8 @@ export class GraphExecution {
                             [values[i]],
                             new Map<number, GPUTexture>(),
                             encoder,
-                            isOutputAnimated ? syntheticId : undefined
+                            -(i + 1)
                         );
-
-                        if (isOutputAnimated && conn) {
-                            this.animatedUniformBindings.push({
-                                targetNodeId: syntheticId,
-                                socketIndex: 0,
-                                upstreamNodeId: conn.upstreamNodeId,
-                                upstreamSocket: conn.upstreamSocket,
-                            });
-                            this.animatedNodes.add(syntheticId);
-                        }
                     }
                     this.outputs.set(nDefn.parameters[i].name, texture);
                 }
@@ -252,17 +255,9 @@ export class GraphExecution {
             const isUniform = Boolean(def.evaluateUniform || def.evaluateUniformOutputs) &&
                 node.connections.every(c => this.uniformNodes.has(c.upstreamNodeId));
 
-            const isAnimated = def.useUTime ||
-                node.connections.some(c => this.animatedNodes.has(c.upstreamNodeId) ||
-                this.animatedUniformNodes.some(u => u.id === c.upstreamNodeId)
-            );
-
             if (isUniform) {
                 const val = evaluateUniformNode(node, this.uniformNodes, 0);
                 this.uniformNodes.set(node.id, val);
-                if (isAnimated) {
-                    this.animatedUniformNodes.push(node);
-                }
                 continue;
             }
             
@@ -289,11 +284,6 @@ export class GraphExecution {
                     });
                 }
             }
-
-            // add to animated nodes
-            if (isAnimated) {
-                this.animatedNodes.add(node.id);
-            }
                 
             if (!texture) {
                 throw new Error(`Error creating texture`);
@@ -312,44 +302,292 @@ export class GraphExecution {
 
         this.device.queue.submit([encoder.finish()]);
         await this.device.queue.onSubmittedWorkDone();
+
+        this.lastDispatchCount = this.nodeRecords.size;
+        this.cachedNodes = selectStaticNodes(this.plan);
+
+        for (const node of ordered) {
+            this.validResults.add(node.id);
+            this.lastScheduledNodes.push(node.id);
+        }
     }
 
 
+    // Updates time and invalidates animated results from the cache
     updateTime(
         encoder: GPUCommandEncoder,
         time: number,
     ) {
-        if (this.animatedNodes.size === 0 && this.animatedUniformNodes.length === 0) return;
+        this.lastDispatchCount = 0;
+        if (time !== this.currentTime) {
+            this.currentTime = time;
 
-        // write time to buffer
-        this.setTime(time);
-
-        // re eval animated uniform nodes on CPU + give to GPU
-        for (const uNode of this.animatedUniformNodes) {
-            const val = evaluateUniformNode(uNode, this.uniformNodes, time);
-            this.uniformNodes.set(uNode.id, val);
+            if (this.plan.timeDependentNodes.size > 0) {
+                // write time to buffer
+                this.setTime(time);
+                for (const id of this.plan.timeDependentNodes) {
+                    this.validResults.delete(id);
+                }
+            }
         }
 
-        for (const binding of this.animatedUniformBindings) {
-            const record = this.nodeRecords.get(binding.targetNodeId)!;
-            const val = this.uniformNodes.get(binding.upstreamNodeId)?.[binding.upstreamSocket];
-            if (val === undefined) {
-                throw new Error(`Missing animated uniform output ${binding.upstreamSocket} from node ${binding.upstreamNodeId}`);
+        const validCachedNodes = new Set<number>();
+         for (const id of this.validResults) {
+            // Want to add the final output node
+            if (this.cachedNodes.has(id) ||
+                id === this.plan.graph.outputNodeId) {
+                validCachedNodes.add(id);
             }
-            const packedVec4 = new Float32Array(toVec4CPU(val));
-            this.device.queue.writeBuffer(record.paramsBuffer, binding.socketIndex * 16, packedVec4);
+        }
+        
+        const scheduled = topoSort(this.plan.graph, validCachedNodes);
+        this.lastScheduledNodes.length = 0;
+
+        for (const node of scheduled) {
+            if (this.uniformNodes.has(node.id)) {
+                this.uniformNodes.set(
+                    node.id, evaluateUniformNode(node, this.uniformNodes, time)
+                );
+            } else {
+                const inputs = getInputs(node, this.textures, this.uniformNodes);
+                const values = getValues(node, inputs, this.uniformNodes);
+
+                if (node.typeId === NodeType.Output) {
+                    const def = nodeDefinitions[NodeType.Output];
+
+                    for (let i = 0; i < def.parameters.length; ++i) {
+                        const fallbackId = -(i + 1);
+
+                        if (this.nodeRecords.has(fallbackId)) {
+                            this.encodePreparedNode(
+                                encoder,
+                                fallbackId,
+                                NodeType.Color,
+                                [values[i]],
+                                new Map()
+                            );
+                        }
+                    }
+                } else {
+                    this.encodePreparedNode(
+                        encoder,
+                        node.id,
+                        node.typeId,
+                        values,
+                        inputs,
+                        getInputChannels(node, this.plan.graph.nodes)
+                    );
+                }
+            }
+
+            this.validResults.add(node.id);
+            this.lastScheduledNodes.push(node.id);
+        }
+    }
+
+    // helper to set cache set
+    setCachedNodes(nodes: ReadonlySet<number> = selectStaticNodes(this.plan)): void {
+        this.cachedNodes = new Set(nodes);
+    }
+
+    // Applies parameter edits, or returns false when a rebuild is required
+    updateGraph(graph: Graph): boolean {
+        const previous = this.plan.graph;
+
+        if (graph.outputNodeId !== previous.outputNodeId ||
+            graph.nodes.length !== previous.nodes.length) {
+            return false;
         }
 
-        if (this.animatedNodes.size > 0) {
-            const pass = encoder.beginComputePass();
-            for (const nodeId of this.animatedNodes) {
-                const n = this.nodeRecords.get(nodeId)!;
-                pass.setPipeline(n.pipeline);
-                pass.setBindGroup(0, n.bindGroup);
-                pass.dispatchWorkgroups(Math.ceil(this.width / 8), Math.ceil(this.height / 8));
-                
+        for (let i = 0; i < graph.nodes.length; ++i) {
+            const a = previous.nodes[i];
+            const b = graph.nodes[i];
+
+            if (a.id !== b.id || a.typeId !== b.typeId ||
+                JSON.stringify(a.connections) !== JSON.stringify(b.connections)) {
+                return false;
             }
-            pass.end();
+        }
+
+        const snapshot = structuredClone(graph);
+        const changed: number[] = [];
+
+        for (let i = 0; i < snapshot.nodes.length; ++i) {
+            const a = previous.nodes[i];
+            const b = snapshot.nodes[i];
+
+            if (JSON.stringify(a.parameters) !== JSON.stringify(b.parameters)) {
+                a.parameters = b.parameters;
+                changed.push(a.id);
+            }
+        }
+
+        for (const id of getAffectedNodes(this.plan, changed)) {
+            this.validResults.delete(id);
+            this.warmCosts.delete(id);
+        }
+
+        return true;
+    }
+
+    // Writes updated parameters to GPU and dispatch new pass 
+    // for compute of the given node
+    private encodePreparedNode(
+        encoder: GPUCommandEncoder,
+        id: number,
+        type: NodeType,
+        values: (GraphValue | undefined)[],
+        inputs: Map<number, GPUTexture>,
+        inputChannels: number[] = []
+    ): void {
+        ++this.lastDispatchCount;
+        const record = this.nodeRecords.get(id)!;
+        const def = nodeDefinitions[type];
+        const connected: boolean[] = [];
+
+        for (let i = 0; i < def.parameters.length; ++i) {
+            connected.push(inputs.has(i));
+        }
+
+        this.device.queue.writeBuffer(
+            record.paramsBuffer, 0,
+            packParams(def, values, connected, inputChannels)
+        );
+
+        const pass = encoder.beginComputePass();
+        pass.setPipeline(record.pipeline);
+        pass.setBindGroup(0, record.bindGroup);
+        pass.dispatchWorkgroups(
+            Math.ceil(this.width / 8),
+            Math.ceil(this.height / 8)
+        );
+        pass.end();
+    }
+
+    // Methods/helpers for node costs
+
+    // Reports node costs and the most recent evaluation state
+    getNodeCosts() {
+        const rows = [];
+        const scheduled = new Set(this.lastScheduledNodes);
+
+        for (const node of this.plan.ordered) {
+            let imageCount = new Set(
+                this.textures.get(node.id) ?? []).size;
+
+            if (node.typeId === NodeType.Output) {
+                const def = nodeDefinitions[NodeType.Output];
+
+                for (let i = 0; i < def.parameters.length; ++i) {
+                    if (this.nodeRecords.has(-(i + 1))) {
+                        ++imageCount;
+                    }
+                }
+            }
+
+            const uniform = this.uniformNodes.has(node.id);
+            let state = "Skipped";
+
+            if (scheduled.has(node.id)) {
+                state = uniform ? "CPU evaluated" : imageCount > 0 ? 
+                    "GPU executed" : "Output bound";
+            } else if (
+                this.validResults.has(node.id) &&
+                (this.cachedNodes.has(node.id) || node.typeId === NodeType.Output)
+            ) {
+                state = "Cached";
+            }
+
+            rows.push({
+                id: node.id,
+                name: nodeDefinitions[node.typeId].name,
+                dynamic: this.plan.timeDependentNodes.has(node.id),
+                state,
+                ...estimateNodeCost(
+                    this.width,
+                    this.height,
+                    imageCount,
+                    this.warmCosts.get(node.id)
+                ),
+            });
+        }
+
+        return rows;
+    }
+
+    // Rets allocated image bytes (includes defaults and output)
+    get allocatedImageBytes(): number {
+        return this.allocatedTextures.length * this.width * this.height * 8;
+    }
+
+    // Measures costs for each node
+    // Some evaluated on CPU evaluators some GPU like FBM
+    async profileNodeCosts(): Promise<void> {
+        if (this.isProfiling) {
+            return;
+        }
+        this.isProfiling = true;
+        const started = performance.now();
+
+        try {
+            // Finish pending edits and drain previously submitted work
+            const pending = this.device.createCommandEncoder();
+            this.updateTime(pending, this.currentTime);
+            this.device.queue.submit([pending.finish()]);
+            await this.device.queue.onSubmittedWorkDone();
+
+            this.warmCosts.clear();
+
+            for (const node of this.plan.ordered) {
+                if (this.uniformNodes.has(node.id)) {
+                    let value = this.uniformNodes.get(node.id)!;
+                    const start = performance.now();
+
+                    for (let i = 0; i < 2048; ++i) {
+                        value = evaluateUniformNode(node, 
+                            this.uniformNodes, this.currentTime);
+                    }
+
+                    this.warmCosts.set(node.id, 
+                        (performance.now() - start) / 2048);
+                    this.uniformNodes.set(node.id, value);
+                } else if (node.typeId === NodeType.Output) {
+                    this.warmCosts.set(node.id, 0);
+                }
+            }
+
+            for (const [id, record] of this.nodeRecords) {
+                const encoder = this.device.createCommandEncoder();
+                const pass = encoder.beginComputePass();
+
+                pass.setPipeline(record.pipeline);
+                pass.setBindGroup(0, record.bindGroup);
+
+                for (let i = 0; i < 16; ++i) {
+                    pass.dispatchWorkgroups(
+                        Math.ceil(this.width / 8),
+                        Math.ceil(this.height / 8)
+                    );
+                }
+
+                pass.end();
+
+                const commands = encoder.finish();
+                const start = performance.now();
+                this.device.queue.submit([commands]);
+                await this.device.queue.onSubmittedWorkDone();
+
+                const nodeId = id < 0 ? this.plan.graph.outputNodeId : id;
+                const ms = (performance.now() - start) / 16;
+
+                this.warmCosts.set(
+                    nodeId,
+                    (this.warmCosts.get(nodeId) ?? 0) + ms
+                );
+            }
+        } finally {
+            this.profileMs = performance.now() - started;
+            this.isProfiling = false;
         }
     }
 }
