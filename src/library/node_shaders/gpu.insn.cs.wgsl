@@ -82,38 +82,58 @@ fn loadFloatArgument(
         return loadResult(instructions[sourceIndex].outputSlot, pixel);
     }
 
+    // FBM nodes have a built-in UV fallback value
+    if (insn.opcode == 10u && paramIndex == 0u) {
+        let uv = vec2f(pixel) / vec2f(f32(executionInfo.width), 
+            f32(executionInfo.height));
+        return vec4f(uv, 0.0, 1.0);
+    }
+
     let raw = parameters[insn.parameterOffset + paramIndex];
     return bitcast<vec4f>(raw);
 }
 
-fn evaluateNode(opcode: u32, args: array<vec4f, 4>) -> vec4f {
+fn evaluateNode(opcode: u32, args: array<vec4f, 4>, pixel: vec2u) -> vec4f {
+    let uv = vec2f(pixel) / vec2f(f32(executionInfo.width), 
+                f32(executionInfo.height));   
+
     switch opcode {
         // color
-        case 1u: {
+        case 2u: {
             return args[0];
         }
         // constant
-        case 2u: {
+        case 3u: {
             return scalarResult(args[0].x);
         }
         // add
-        case 3u: {
+        case 4u: {
             return scalarResult(args[0].x + args[1].x);
         }
         // invert
-        case 4u: {
+        case 5u: {
             return vec4f(vec3f(1.0) - args[0].rgb, args[0].a);
         }
         // subtract
-        case 5u: {
+        case 6u: {
             return scalarResult(args[0].x - args[1].x);
         }
         // multiply
-        case 6u: {
+        case 7u: {
             return scalarResult(args[0].x * args[1].x);
         }
+        // fbm
+        case 10u: {
+            return scalarResult(fbmNode(
+                uv,
+                args[0].xy,
+                args[1].x,
+                args[2].xy,
+                u32(args[3].x)
+            ));
+        }
         // blend
-        case 11u: {
+        case 12u: {
             return mix(args[0], args[1], args[2].x);
         }
         // should never reach here
@@ -154,7 +174,7 @@ fn main(
         args[i] = loadFloatArgument(insn, i, pixel);
     }
 
-    let result = evaluateNode(insn.opcode, args);
+    let result = evaluateNode(insn.opcode, args, pixel);
     storeResult(insn.outputSlot, pixel, result);
 }
 

@@ -12,6 +12,7 @@ export const EMPTY = 0xffffffff;
 
 import { nodeDefinitions, NodeType } from "../../definitions";
 import { Graph } from "../graph_types";
+import { toVec4CPU } from "../node_shader_builder";
 
 export function packGPUGraph(graph: Graph) {
     const nodeMap = new Map(graph.nodes.map((node, index) => [node.id, index]));
@@ -61,19 +62,10 @@ export function packGPUGraph(graph: Graph) {
                 continue;
             }
 
-            const paramComponents = typeof paramValue == "number" ? [paramValue] : paramValue;
-            if (paramComponents.length > 4) {
-                throw new Error(`Longest param type allowed is 4 components (vec4), this is ${paramComponents.length}`);
-            }
-
-            const base = (offset + j) * 4;
-            for (let c = 0; c < paramComponents.length; ++c) {
-                if (paramDefn.type.type == "uint16" || paramDefn.type.type == "uint32") {
-                    parameters[base + c] = paramComponents[c];
-                } else {
-                    floatParams[base + c] = paramComponents[c];
-                }
-            }
+            floatParams.set(
+                toVec4CPU(paramValue),
+                (offset + j) * 4
+            );
         }
 
         const connectedSockets = new Set<number>();

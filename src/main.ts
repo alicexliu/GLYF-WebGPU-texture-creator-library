@@ -10,6 +10,7 @@ import { Stage } from './stage/stage';
 import { createEditor } from './node_editor/editor';
 import { Rete2Graph, setupPngExport } from './node_editor/import_export';
 import { Graph } from './library/graph_types';
+import { GraphExecution } from './library/parser/graph_execution';
 import { GPUGraphExecution } from './library/parser/gpu_graph_execution';
 import { setupResizableLayout } from './layout';
 
@@ -20,16 +21,23 @@ const costRows = document.getElementById("costRows")!;
 const costSummary = document.getElementById("costSummary")!;
 const costStatus = document.getElementById("costStatus")!;
 
-let execution: GraphExecution;
+const backend = { mode: "Specialized shaders"};
+let execution: GraphExecution | GPUGraphExecution;
 let graphUpdates: Promise<boolean> = Promise.resolve(true);
 
 function applyCacheMode(): void {
-    execution?.setCachedNodes(
-        cacheMode.value === "static" ? undefined : new Set()
-    );
+    if (execution instanceof GraphExecution) {
+        execution.setCachedNodes(
+            cacheMode.value === "static" ? undefined : new Set()
+        );
+    }
 }
 
 async function profileCurrentGraph(): Promise<boolean> {
+    if (!(execution instanceof GraphExecution)) {
+        return false;
+    }
+
     try {
         await execution.profileNodeCosts();
 
@@ -56,6 +64,11 @@ function queueCostProfile(): void {
 
 // Refreshes the table without rebuilding the editor or renderer
 function updateCostPanel(): void {
+    // GPU execution doesn't have caching implemented yet
+    if (!(execution instanceof GraphExecution)) {
+        costRows.replaceChildren();
+        return;
+    }
     if (!execution) {
         return;
     }

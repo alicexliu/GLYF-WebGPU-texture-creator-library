@@ -1,7 +1,15 @@
+import { NodeType } from "../../definitions";
 import { Graph } from "../graph_types";
 import interpreterWGSL from "../node_shaders/gpu.insn.cs.wgsl?raw";
 import schedulerWGSL from "../node_shaders/gpu.schedule.cs.wgsl?raw";
+import { nodeWGSL } from "./graph_parser";
 import { packGPUGraph } from "./pack_gpu_graph";
+
+// renaming the fbm shader node name to avoid having to reimplement it in the gpu 
+// interpreter like the other nodes
+// TODO: this is a quick fix for now, will change
+const interpreterSource = interpreterWGSL + "\n" + 
+    nodeWGSL[NodeType.FbmNoise].source.replace("fn node(", "fn fbmNode(");
 
 export class GPUGraphExecution {
     readonly outputs = new Map<string, GPUTexture>();
@@ -287,7 +295,7 @@ export class GPUGraphExecution {
 export async function createInterpreterPipeline(device: GPUDevice) {
     const module = device.createShaderModule({
         label: "GLYF GPU interpreter",
-        code: interpreterWGSL
+        code: interpreterSource
     });
 
     const info = await module.getCompilationInfo();
@@ -327,7 +335,7 @@ async function createGraphPipelines(device: GPUDevice) {
         code: schedulerWGSL,
     });
     const interpreterModule = device.createShaderModule({
-        code: interpreterWGSL,
+        code: interpreterSource,
     });
 
     const types: GPUBufferBindingType[] = [
