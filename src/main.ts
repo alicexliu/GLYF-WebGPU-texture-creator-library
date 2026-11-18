@@ -15,10 +15,17 @@ import { setupResizableLayout } from './layout';
 import { setNodePreviewTextures } from './node_editor/node_preview';
 
 let execution: GraphExecution;
+let latestGraphUpdate = 0;
 
 async function updateGraph(graph: Graph): Promise<boolean> {
+    const graphUpdate = ++latestGraphUpdate;
     try {
         const newExecution = await GraphExecution.create(device, graph);
+        if (graphUpdate !== latestGraphUpdate) {
+            newExecution.destroy();
+            return false;
+        }
+
         const old = execution;
         execution = newExecution;
         setNodePreviewTextures(device, canvasFormat, execution.nodePreviews);
