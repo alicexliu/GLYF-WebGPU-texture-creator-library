@@ -10,7 +10,7 @@ import { Stage } from './stage/stage';
 import { createEditor } from './node_editor/editor';
 import { Rete2Graph, setupPngExport } from './node_editor/import_export';
 import { Graph } from './library/graph_types';
-import { GraphExecution } from './library/parser/graph_execution';
+import { GPUGraphExecution } from './library/parser/gpu_graph_execution';
 import { setupResizableLayout } from './layout';
 
 
