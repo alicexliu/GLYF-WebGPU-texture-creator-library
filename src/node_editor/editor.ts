@@ -226,12 +226,14 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
             nodeMenuItem(NodeType.Add),
             nodeMenuItem(NodeType.Subtract),
             nodeMenuItem(NodeType.Multiply),
+            nodeMenuItem(NodeType.Multiply3),
             nodeMenuItem(NodeType.Power),
             nodeMenuItem(NodeType.Step),
             nodeMenuItem(NodeType.SinCos),
             nodeMenuItem(NodeType.DotProduct),
             nodeMenuItem(NodeType.Invert),
             nodeMenuItem(NodeType.Blend),
+            nodeMenuItem(NodeType.GradientMap),
 
         ]],
         ["Vectors", [

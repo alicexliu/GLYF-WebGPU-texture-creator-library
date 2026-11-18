@@ -60,6 +60,8 @@ export enum NodeType {
     CombineVec4 = 20,
     SinCos = 21,
     DotProduct = 22,
+    Multiply3 = 23,
+    GradientMap = 24,
 }
 
 export interface NodeDefinition {
@@ -237,6 +239,40 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             const wave = asFloat(mode) > 0 ? Math.cos(angle) : Math.sin(angle);
             return asFloat(amplitude) * wave + asFloat(offset);
         },
+    },
+    [NodeType.Multiply3]: {
+        typeId: NodeType.Multiply3,
+        name: "Multiply Vec3",
+        parameters: [
+            { name: "a", type: dataTypes.VEC3, socket: true, default: [1.0, 1.0, 1.0] },
+            { name: "b", type: dataTypes.VEC3, socket: true, default: [1.0, 1.0, 1.0] }
+        ],
+        outputs: [
+            { name: "out", type: dataTypes.VEC3 }
+        ],
+        evaluateUniform: ([a, b]) => {
+            const vectorA = toVec4CPU(a);
+            const vectorB = toVec4CPU(b);
+            return [
+                vectorA[0] * vectorB[0],
+                vectorA[1] * vectorB[1],
+                vectorA[2] * vectorB[2]
+            ];
+        },
+    },
+    [NodeType.GradientMap]: {
+        typeId: NodeType.GradientMap,
+        name: "Gradient Map",
+        parameters: [
+            { name: "value", type: dataTypes.FLOAT32, socket: true, default: 0.0 },
+            { name: "low", type: dataTypes.VEC4, socket: true, default: [0.0, 0.0, 0.0, 1.0] },
+            { name: "mid", type: dataTypes.VEC4, socket: true, default: [0.5, 0.5, 0.5, 1.0] },
+            { name: "high", type: dataTypes.VEC4, socket: true, default: [1.0, 1.0, 1.0, 1.0] },
+            { name: "midPosition", type: dataTypes.FLOAT32, default: 0.5 }
+        ],
+        outputs: [
+            { name: "out", type: dataTypes.VEC4 }
+        ],
     },
     [NodeType.DotProduct]: {
         typeId: NodeType.DotProduct,
