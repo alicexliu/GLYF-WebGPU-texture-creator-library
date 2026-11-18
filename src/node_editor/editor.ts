@@ -218,6 +218,7 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
             nodeMenuItem(NodeType.Time),
             nodeMenuItem(NodeType.Color),
             nodeMenuItem(NodeType.Constant),
+            nodeMenuItem(NodeType.Gradient),
             nodeMenuItem(NodeType.PerlinNoise),
             nodeMenuItem(NodeType.WorleyNoise),
             nodeMenuItem(NodeType.FbmNoise),
@@ -225,6 +226,8 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
         ["Math", [
             nodeMenuItem(NodeType.Add),
             nodeMenuItem(NodeType.Subtract),
+            nodeMenuItem(NodeType.OneMinus),
+            nodeMenuItem(NodeType.Clamp),
             nodeMenuItem(NodeType.Multiply),
             nodeMenuItem(NodeType.Power),
             nodeMenuItem(NodeType.Step),
@@ -446,5 +449,3 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     onGraphChange(Rete2Graph(editor));
     return editor;
 }
-
-

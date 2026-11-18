@@ -21,6 +21,9 @@ import combineVec3WGSL from "../node_shaders/combine/combine_vec3.cs.wgsl?raw";
 import combineVec4WGSL from "../node_shaders/combine/combine_vec4.cs.wgsl?raw";
 import sinCosWGSL from "../node_shaders/combine/sin_cos.cs.wgsl?raw";
 import dotProductWGSL from "../node_shaders/combine/dot_product.cs.wgsl?raw";
+import oneMinusWGSL from "../node_shaders/combine/one_minus.cs.wgsl?raw";
+import gradientWGSL from "../node_shaders/generate/gradient.cs.wgsl?raw";
+import clampWGSL from "../node_shaders/combine/clamp.cs.wgsl?raw";
 import { nodeDefinitions, NodeType } from "../../definitions";
 
 export const nodeWGSL = {
@@ -44,6 +47,9 @@ export const nodeWGSL = {
     [NodeType.CombineVec4]: {name: "combine_vec4", source: combineVec4WGSL},
     [NodeType.SinCos]: {name: "sin_cos", source: sinCosWGSL},
     [NodeType.DotProduct]: {name: "dot_product", source: dotProductWGSL},
+    [NodeType.OneMinus]: {name: "one_minus", source: oneMinusWGSL},
+    [NodeType.Gradient]: {name: "gradient", source: gradientWGSL},
+    [NodeType.Clamp]: {name: "clamp", source: clampWGSL},
 };
 
 // dfs node visit helper for tarjan's

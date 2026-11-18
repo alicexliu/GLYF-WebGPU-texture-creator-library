@@ -60,6 +60,9 @@ export enum NodeType {
     CombineVec4 = 20,
     SinCos = 21,
     DotProduct = 22,
+    OneMinus = 23,
+    Gradient = 24,
+    Clamp = 25,
 }
 
 export interface NodeDefinition {
@@ -129,6 +132,19 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
         ],
         evaluateUniform: ([val]) => asFloat(val),
     },
+    [NodeType.Gradient]: {
+        typeId: NodeType.Gradient,
+        name: "Gradient",
+        parameters: [
+            { name: "start", type: dataTypes.VEC4, socket: true, default: [0.0, 0.0, 0.0, 1.0] },
+            { name: "end", type: dataTypes.VEC4, socket: true, default: [1.0, 1.0, 1.0, 1.0] },
+            { name: "direction", type: dataTypes.VEC2, socket: true, default: [1.0, 0.0] },
+            { name: "intensity", type: dataTypes.FLOAT32, socket: true, default: 1.0 }
+        ],
+        outputs: [
+            { name: "out", type: dataTypes.VEC4 }
+        ],
+    },
     [NodeType.Add]: {
         typeId: NodeType.Add,
         name: "Add",
@@ -152,6 +168,30 @@ export const nodeDefinitions: Record<NodeType, NodeDefinition> = {
             { name: "out", type: dataTypes.FLOAT32 }
         ],
         evaluateUniform: ([a, b]) => asFloat(a) - asFloat(b),
+    },
+    [NodeType.OneMinus]: {
+        typeId: NodeType.OneMinus,
+        name: "One Minus",
+        parameters: [
+            { name: "x", type: dataTypes.FLOAT32, socket: true, default: 0.0 }
+        ],
+        outputs: [
+            { name: "out", type: dataTypes.FLOAT32 }
+        ],
+        evaluateUniform: ([x]) => 1.0 - asFloat(x),
+    },
+    [NodeType.Clamp]: {
+        typeId: NodeType.Clamp,
+        name: "Clamp",
+        parameters: [
+            { name: "x", type: dataTypes.FLOAT32, socket: true, default: 0.0 },
+            { name: "min", type: dataTypes.FLOAT32, socket: true, default: 0.0 },
+            { name: "max", type: dataTypes.FLOAT32, socket: true, default: 1.0 }
+        ],
+        outputs: [
+            { name: "out", type: dataTypes.FLOAT32 }
+        ],
+        evaluateUniform: ([x, min, max]) => Math.min(Math.max(asFloat(x), asFloat(min)), asFloat(max)),
     },
     [NodeType.Step]: {
         typeId: NodeType.Step,
