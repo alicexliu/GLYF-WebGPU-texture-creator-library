@@ -135,3 +135,37 @@ html, body {
     color: #ddd;
     font-size: 12px;
 }
+
+.rete-node-with-preview {
+    display: flex;
+    width: max-content;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.rete-node-with-preview > div:first-child {
+    border-radius: 10px 10px 0 0;
+    padding-bottom: 0;
+}
+
+.rete-node-preview {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    margin-top: 0;
+    border: 2px solid #4e58bf;
+    border-top: 0;
+    border-radius: 0 0 8px 8px;
+    background: #1e1e1e;
+    image-rendering: pixelated;
+}
+
+.rete-node-with-preview[data-selected="true"] .rete-node-preview {
+    border-color: #e3c000;
+}
+
+.rete-node-preview[hidden] {
+    display: none;
+}

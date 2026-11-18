@@ -10,6 +10,7 @@ import { AreaExtensions } from "rete-area-plugin";
 import { serializeGlyf } from "../library/converter/glyf_converter";
 import { parseGlyf } from "../library/parser/glyf_parser";
 import { Rete2Graph } from "./import_export";
+import { NodePreview } from "./node_preview";
 
 // custom nodes 
 import { getControlLabel, graphEditNode, ToggleControl } from "./graph_edit_node";
@@ -151,19 +152,27 @@ export async function createEditor(container: HTMLElement, onGraphChange: (g: Gr
     render.addPreset(Presets.classic.setup({
         customize: {
             node: ({ payload }) => ({ data, emit }) => createElement(
-                Presets.classic.Node,
+                "div",
                 {
-                    data,
-                    emit,
-                    styles: () => payload.selected ? css`
-                        & .title,
-                        & .input-title,
-                        & .output-title,
-                        & .rete-parameter-label {
-                            color: black;
-                        }
-                    ` : undefined,
-                }
+                    className: "rete-node-with-preview",
+                    "data-selected": data.selected ? "true" : "false",
+                },
+                createElement(
+                    Presets.classic.Node,
+                    {
+                        data,
+                        emit,
+                        styles: () => payload.selected ? css`
+                            & .title,
+                            & .input-title,
+                            & .output-title,
+                            & .rete-parameter-label {
+                                color: black;
+                            }
+                        ` : undefined,
+                    }
+                ),
+                createElement(NodePreview, { nodeId: Number(payload.id) })
             ),
             control: ({ payload }) => {
                 const label = getControlLabel(payload);

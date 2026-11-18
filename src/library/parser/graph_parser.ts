@@ -86,7 +86,6 @@ export function topoSort(G: Graph) {
         nodeColor.set(n, 0);
     }
 
-    // We only need to look at the nodes connected to the output node
     const outputNode = G.nodes.find(n => n.id === G.outputNodeId);
     if (!outputNode) {
         throw new Error(`Missing output node ${G.outputNodeId}`);
@@ -94,6 +93,11 @@ export function topoSort(G: Graph) {
 
     const f: GraphNode[] =[];
     dfs_visit(G, outputNode, nodeColor, f);
+    for (const node of G.nodes) {
+        if (nodeColor.get(node) === 0) {
+            dfs_visit(G, node, nodeColor, f);
+        }
+    }
     
     return f;
 }

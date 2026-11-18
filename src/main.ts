@@ -1,7 +1,7 @@
 import Stats from 'stats.js';
 import { GUI } from 'dat.gui';
 
-import { initWebGPU, Renderer, device } from './node_editor/renderer';
+import { initWebGPU, Renderer, canvasFormat, device } from './node_editor/renderer';
 import { TextureRenderer } from './node_editor/texture_render';
 
 import { setupLoaders, Scene } from './stage/scene';
@@ -12,6 +12,7 @@ import { Rete2Graph, setupPngExport } from './node_editor/import_export';
 import { Graph } from './library/graph_types';
 import { GraphExecution } from './library/parser/graph_execution';
 import { setupResizableLayout } from './layout';
+import { setNodePreviewTextures } from './node_editor/node_preview';
 
 let execution: GraphExecution;
 
@@ -20,7 +21,10 @@ async function updateGraph(graph: Graph): Promise<boolean> {
         const newExecution = await GraphExecution.create(device, graph);
         const old = execution;
         execution = newExecution;
-        setRenderer();
+        setNodePreviewTextures(device, canvasFormat, execution.nodePreviews);
+        if (renderer) {
+            setRenderer();
+        }
         old?.destroy();
         return true;
     } catch (e) {

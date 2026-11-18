@@ -1,11 +1,12 @@
 import { nodeDefinitions, NodeType } from "../../definitions";
 import { Graph, GraphValue, GraphNode } from "../graph_types";
-import { buildNodeShader, packParams, toVec4CPU } from "../node_shader_builder";
+import { asFloat, buildNodeShader, packParams, toVec4CPU } from "../node_shader_builder";
 import { evaluateUniformNode, getInputChannels, getInputs, getValues, nodeWGSL, topoSort } from "./graph_parser";
 import { inputBinding, PARAMS_BINDING, OUTPUT_BINDING, timeBinding } from "../bindings";
 
 export class GraphExecution {
     readonly outputs = new Map<string, GPUTexture>();
+    readonly nodePreviews = new Map<number, GPUTexture>();
     readonly textures: GPUTexture[] = [];
     private readonly pipelines = new Map<NodeType, GPUComputePipeline>();
     private readonly buffers: GPUBuffer[] = [];
@@ -16,6 +17,8 @@ export class GraphExecution {
                       {pipeline: GPUComputePipeline, bindGroup: GPUBindGroup, paramsBuffer: GPUBuffer}>();
 
     private readonly animatedNodes = new Set<number>();
+    private readonly animatedPreviewNodes = new Map<number, number>();
+    private readonly outputPreviewNodeIds = new Set<number>();
 
     private readonly uniformNodes = new Map<number, GraphValue[]>();
     private readonly animatedUniformNodes: GraphNode[] = []; // topologically ordered
@@ -87,9 +90,12 @@ export class GraphExecution {
         this.textures.length = 0;
         this.buffers.length = 0;
         this.outputs.clear();
+        this.nodePreviews.clear();
         this.pipelines.clear();
         this.nodeRecords.clear();
         this.animatedNodes.clear();
+        this.animatedPreviewNodes.clear();
+        this.outputPreviewNodeIds.clear();
         this.uniformNodes.clear();
         this.animatedUniformNodes.length = 0;
         this.animatedUniformBindings.length = 0;
@@ -201,8 +207,7 @@ export class GraphExecution {
     // Execute each node in dependency order and collect the final output texture
     private async run(graph: Graph): Promise<void> {
         const ordered = topoSort(graph);
-        const outputNode = ordered[ordered.length - 1];
-        if (!outputNode || outputNode.typeId !== NodeType.Output) {
+        if (!ordered.some(node => node.id === graph.outputNodeId && node.typeId === NodeType.Output)) {
             throw new Error("Output node invalid");
         }
 
@@ -242,6 +247,12 @@ export class GraphExecution {
                     }
                     this.outputs.set(nDefn.parameters[i].name, texture);
                 }
+                const albedo = this.outputs.get("albedo");
+                if (!albedo) {
+                    throw new Error("Missing albedo output texture");
+                }
+                this.nodePreviews.set(node.id, albedo);
+                this.outputPreviewNodeIds.add(node.id);
                 continue;
             }
             const def = nodeDefinitions[node.typeId];
@@ -260,8 +271,25 @@ export class GraphExecution {
             if (isUniform) {
                 const val = evaluateUniformNode(node, this.uniformNodes, 0);
                 this.uniformNodes.set(node.id, val);
+                const previewValue: GraphValue = def.packedOutputType
+                    ? val.map(asFloat)
+                    : val[0];
+                if (previewValue === undefined) {
+                    throw new Error(`Missing preview output for node ${node.id}`);
+                }
+                const previewRecordId = -(node.id + 3);
+                const previewTexture = await this.encodeNode(
+                    NodeType.Color,
+                    [previewValue],
+                    new Map<number, GPUTexture>(),
+                    encoder,
+                    previewRecordId
+                );
+                this.nodePreviews.set(node.id, previewTexture);
                 if (isAnimated) {
                     this.animatedUniformNodes.push(node);
+                    this.animatedNodes.add(previewRecordId);
+                    this.animatedPreviewNodes.set(previewRecordId, node.id);
                 }
                 continue;
             }
@@ -308,6 +336,7 @@ export class GraphExecution {
                     ? def.outputs.map(() => texture)
                     : [texture]
             );
+            this.nodePreviews.set(node.id, texture);
         }
 
         this.device.queue.submit([encoder.finish()]);
@@ -318,8 +347,11 @@ export class GraphExecution {
     updateTime(
         encoder: GPUCommandEncoder,
         time: number,
-    ) {
-        if (this.animatedNodes.size === 0 && this.animatedUniformNodes.length === 0) return;
+    ): Set<number> {
+        const updatedPreviewIds = new Set<number>();
+        if (this.animatedNodes.size === 0 && this.animatedUniformNodes.length === 0) {
+            return updatedPreviewIds;
+        }
 
         // write time to buffer
         this.setTime(time);
@@ -330,6 +362,34 @@ export class GraphExecution {
             this.uniformNodes.set(uNode.id, val);
         }
 
+        for (const [previewRecordId, nodeId] of this.animatedPreviewNodes) {
+            const node = this.animatedUniformNodes.find(candidate => candidate.id === nodeId);
+            if (!node) {
+                throw new Error(`Missing animated preview node ${nodeId}`);
+            }
+            const def = nodeDefinitions[node.typeId];
+            const values = this.uniformNodes.get(nodeId);
+            if (!values) {
+                throw new Error(`Missing animated uniform output for node ${nodeId}`);
+            }
+            const previewValue: GraphValue = def.packedOutputType
+                ? values.map(asFloat)
+                : values[0];
+            if (previewValue === undefined) {
+                throw new Error(`Missing animated preview output for node ${nodeId}`);
+            }
+            const record = this.nodeRecords.get(previewRecordId);
+            if (!record) {
+                throw new Error(`Missing preview GPU record for node ${nodeId}`);
+            }
+            this.device.queue.writeBuffer(
+                record.paramsBuffer,
+                0,
+                new Float32Array(toVec4CPU(previewValue))
+            );
+            updatedPreviewIds.add(nodeId);
+        }
+
         for (const binding of this.animatedUniformBindings) {
             const record = this.nodeRecords.get(binding.targetNodeId)!;
             const val = this.uniformNodes.get(binding.upstreamNodeId)?.[binding.upstreamSocket];
@@ -338,6 +398,9 @@ export class GraphExecution {
             }
             const packedVec4 = new Float32Array(toVec4CPU(val));
             this.device.queue.writeBuffer(record.paramsBuffer, binding.socketIndex * 16, packedVec4);
+            if (binding.targetNodeId >= 0) {
+                updatedPreviewIds.add(binding.targetNodeId);
+            }
         }
 
         if (this.animatedNodes.size > 0) {
@@ -351,5 +414,13 @@ export class GraphExecution {
             }
             pass.end();
         }
+        for (const nodeId of this.outputPreviewNodeIds) {
+            updatedPreviewIds.add(nodeId);
+        }
+        for (const nodeId of this.animatedNodes) {
+            const previewNodeId = this.animatedPreviewNodes.get(nodeId);
+            updatedPreviewIds.add(previewNodeId ?? nodeId);
+        }
+        return updatedPreviewIds;
     }
 }

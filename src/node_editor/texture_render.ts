@@ -6,6 +6,7 @@
     import { GraphExecution } from '../library/parser/graph_execution';
     import { buildNodeShader, packParams } from '../library/node_shader_builder';
     import { nodeDefinitions, NodeType } from '../definitions';
+    import { refreshNodePreviews } from './node_preview';
     // temp
     import colorWGSL from '../library/node_shaders/generate/color.cs.wgsl?raw';
 
@@ -295,7 +296,7 @@
 
             // compute animated textures 
             const elapsedTime = (performance.now() - this.startTime) / 1000
-            this.execution.updateTime(encoder, elapsedTime);
+            const updatedPreviewIds = this.execution.updateTime(encoder, elapsedTime);
         
             // render pass
             const renderPass = encoder.beginRenderPass({
@@ -316,5 +317,6 @@
             renderPass.end();
 
             renderer.device.queue.submit([encoder.finish()]);
+            refreshNodePreviews(updatedPreviewIds);
         }
     }
